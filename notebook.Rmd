@@ -1,0 +1,31 @@
+---
+output: html_document
+jupyter:
+  kernelspec:
+    name: ir
+    display_name: R
+    language: R
+---
+
+```{r, include = FALSE}
+# Show chunks with a `fold` option as collapsible sections with that title
+knitr::knit_hooks$set(fold = function(before, options) {
+  if (before) {
+    paste0("\n\n<details><summary>", options$fold, "</summary>\n\n")
+  } else {
+    "\n\n</details>\n\n"
+  }
+})
+```
+
+# Detection of Offensive Tweets
+
+<!-- Team, goal of the competition -->
+
+```{r setup, message = FALSE, code = readLines(here::here("setup.R"))}
+source(here::here("setup.R"))
+```
+
+```{r notebooks, child = list.files(here::here("analysis"), full.names = TRUE)}
+```
+

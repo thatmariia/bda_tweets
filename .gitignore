@@ -1,0 +1,16 @@
+# Kaggle data
+data/*
+!data/README.md
+
+# Generated files
+output/*
+!output/.gitkeep
+*.html
+
+# R and RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+.DS_Store
