@@ -3,10 +3,12 @@
 # ==========================================================
 
 #' Settings for one feature set
-feature_config <- function(ngram_max = 1, shingle_min = 0, shingle_max = 0,
-                           weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
-                           surprise_pct = 0,
-                           length = FALSE, lexicon = FALSE, nb_scaling = FALSE) {
+feature_config <- function(
+    ngram_max = 1, shingle_min = 0, shingle_max = 0,
+    weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
+    surprise_pct = 0,
+    length = FALSE, lexicon = FALSE, nb_scaling = FALSE
+) {
     config <- list(
         ngram_max = ngram_max,
         shingle_min = shingle_min,
@@ -24,11 +26,16 @@ feature_config <- function(ngram_max = 1, shingle_min = 0, shingle_max = 0,
 #' Turn tweets into a feature matrix
 #' Call it with `config` on training data and with `recipe` on validation / test data
 #'
+#' The tweets are processed in chunks, so the tokens of all tweets never have to fit
+#' in memory at the same time. Fitting goes over the chunks twice: first to count the
+#' tokens (for the vocabulary, IDF and naive Bayes ratios), then to build the matrix.
+#'
 #' @param data A data frame with columns `id` and `tweet` (and `label` for training data)
 #' @param config Settings from feature_config(); only when fitting on training data
 #' @param recipe The `recipe` returned when fitting on training data
+#' @param chunk_size Number of tweets per chunk
 #' @return A list with `x` (sparse matrix), `y` (labels or NULL), and `recipe`
-prepare_features <- function(data, config = NULL, recipe = NULL) {
+prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20000) {
     stopifnot(all(c("id", "tweet") %in% colnames(data)))
     stopifnot(xor(is.null(config), is.null(recipe))) # either config or recipe must be provided
 
@@ -37,25 +44,36 @@ prepare_features <- function(data, config = NULL, recipe = NULL) {
 
     y <- if ("label" %in% colnames(data)) data$label else NULL # test data doesn't have labels
 
-    # tokenize
-    tokens <- tokenize_tweets(data, config$ngram_max, config$shingle_min, config$shingle_max)
+    chunks <- split(data, ceiling(seq_len(nrow(data)) / chunk_size))
+    tokenize <- \(chunk) {
+        tokens <- tokenize_tweets(chunk, config$ngram_max, config$shingle_min, config$shingle_max)
+        return(tokens)
+    }
 
-    # vocabulary and IDF, learned on training data only
+    # vocabulary, IDF and naive Bayes ratios, learned on training data only
     if (fitting) {
-        recipe <- list(config = config, vocab = fit_vocabulary(tokens, config$surprise_pct))
+        chunk_counts <- map(chunks, \(chunk) count_tokens(tokenize(chunk), chunk))
+        n_docs <- sum(map_int(chunk_counts, \(counts) counts$n_docs))
+        token_counts <- chunk_counts |>
+            map(\(counts) counts$tokens) |>
+            bind_rows() |>
+            group_by(token) |>
+            summarise(across(everything(), sum))
+
+        recipe <- list(
+            config = config,
+            vocab = fit_vocabulary(token_counts, n_docs, config$surprise_pct)
+        )
+        if (config$nb_scaling) recipe$nb_ratios <- fit_nb_ratios(token_counts, recipe$vocab)
     }
 
-    # add weights to tokens
-    values <- tokens |> weight_tokens(recipe$vocab, config$weighting)
-
-    # naive Bayes scaling, learned on training data only
-    if (config$nb_scaling) {
-        if (fitting) recipe$nb_ratios <- fit_nb_ratios(values, data)
-        values <- nb_scale(values, recipe$nb_ratios)
-    }
-
-    # turn into a sparse matrix
-    x <- values |> tokens_to_sparse_matrix(data$id, recipe$vocab)
+    # weighted tokens -> sparse matrix, one chunk at a time
+    chunk_matrices <- map(chunks, \(chunk) {
+        values <- tokenize(chunk) |> weight_tokens(recipe$vocab, config$weighting)
+        if (config$nb_scaling) values <- nb_scale(values, recipe$nb_ratios)
+        return(tokens_to_sparse_matrix(values, chunk$id, recipe$vocab))
+    })
+    x <- do.call(rbind, unname(chunk_matrices))
 
     # extra features from raw tweets
     if (config$length) x <- x |> add_columns(length_features(data))
@@ -64,12 +82,25 @@ prepare_features <- function(data, config = NULL, recipe = NULL) {
     return(list(x = x, y = y, recipe = recipe))
 }
 
-#' Get the vocabulary and IDF from training tokens
-fit_vocabulary <- function(tokens, surprise_pct = 0) {
-    n_docs <- n_distinct(tokens$id)
+#' Count the tweets that contain each token, in one chunk of training tweets
+#' (and how many of them are offensive or not, for the naive Bayes ratios)
+#' @return A list with `tokens` (one row per token) and `n_docs` (tweets with any token)
+count_tokens <- function(tokens, chunk) {
+    token_counts <- tokens |>
+        inner_join(select(chunk, id, label), by = "id") |>
+        group_by(token) |>
+        summarise(
+            doc_count = n(), # tokens has one row per tweet and token
+            n_offensive = sum(label == 1),
+            n_other = sum(label == 0)
+        )
 
-    kept_tokens <- tokens |>
-        count(token, name = "doc_count") |> # number of tweets containing the token
+    return(list(tokens = token_counts, n_docs = n_distinct(tokens$id)))
+}
+
+#' Get the vocabulary and IDF from the token counts of the training tweets
+fit_vocabulary <- function(token_counts, n_docs, surprise_pct = 0) {
+    kept_tokens <- token_counts |>
         mutate(idf = log(n_docs / doc_count)) |>
         filter(idf <= -log(surprise_pct / 100)) |>
         select(token, idf)
@@ -114,21 +145,17 @@ tokens_to_sparse_matrix <- function(values, ids, vocab) {
     return(x)
 }
 
-#' Learn naive Bayes log-count ratios from training data
+#' Learn naive Bayes log-count ratios from the token counts of the training tweets
 #'
 #' For each token: log of a ratio:
 #' numerator: share of offensive tweets that contain the token
 #' denominator: share of non-offensive tweets that contain the token
-fit_nb_ratios <- function(values, data, alpha = 1) {
-    stopifnot("label" %in% colnames(data))
-
-    ratios <- values |>
-        distinct(id, token) |>
-        inner_join(select(data, id, label), by = "id") |>
-        group_by(token) |>
-        summarise(
-            n_offensive = sum(label == 1) + alpha,
-            n_other = sum(label == 0) + alpha
+fit_nb_ratios <- function(token_counts, vocab, alpha = 1) {
+    ratios <- token_counts |>
+        semi_join(vocab, by = "token") |>
+        mutate(
+            n_offensive = n_offensive + alpha,
+            n_other = n_other + alpha
         ) |>
         mutate(nb_ratio = log(
             (n_offensive / sum(n_offensive)) / (n_other / sum(n_other))
