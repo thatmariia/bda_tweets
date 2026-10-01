@@ -1,0 +1,31 @@
+```{r, include = FALSE}
+source(here::here("setup.R"))
+for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
+best_fit <- readRDS(here::here(output_dir, "best_fit.rds"))
+test_data <- readRDS(here::here(output_dir, "test_data.rds"))
+```
+
+# Submission
+
+## Generating predictions for each tweet
+
+The test tweets get the same features as the tweets the best model was refitted on.
+
+```{r}
+test <- prepare_features(test_data, recipe = best_fit$recipe)
+predictions <- predict_model(best_fit$model, test$x)
+str(predictions)
+```
+
+## Writing submission file
+
+```{r}
+submission <- tibble(id = test_data$id, prob = predictions) |>
+    arrange(as.numeric(id))
+
+submission |> write_csv(here::here(output_dir, "submission.csv"))
+
+# check: should be 50,001 x 2
+cat("Submission file dimensions: ", dim(submission), "\n")
+read_csv(file.path(output_dir, "submission.csv"), col_types = "cd")
+```

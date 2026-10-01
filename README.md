@@ -25,7 +25,7 @@ New files in `analysis/` and `R/` are picked up automatically.
    install.packages("renv")
    renv::restore()
    ```
-3. Download the competition data into `data/` (see `data/README.md`).
+3. Download the competition data into `data/`.
 
 ## Workflow
 
@@ -36,7 +36,7 @@ git switch main
 git pull
 git switch -c feature/my-feature
 # ... make changes ...
-git add analysis/02_features.Rmd R/features.R
+git add analysis/03_features.Rmd R/features.R
 git commit -m "Add my feature"
 git push -u origin feature/my-feature
 ```

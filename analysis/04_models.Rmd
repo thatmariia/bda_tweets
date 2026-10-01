@@ -1,0 +1,107 @@
+```{r, include = FALSE}
+source(here::here("setup.R"))
+for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
+data_split <- readRDS(here::here(output_dir, "data_split.rds"))
+feature_sets <- readRDS(here::here(output_dir, "feature_sets.rds"))
+```
+
+# Models
+
+Methods:
+
+1. Lasso and Ridge regression
+2. Principal Components and Partial Least Squares regression
+3. Smoothing
+4. Regression and Classification trees (CART)
+5. Random Forests
+6. Support Vector Machines
+
+Methods (1) and (2) are able to take many features while automatically reducing redundant flexibility to any desired level.
+Multicollinearity (highly correlated linear combinations of features) is also automatically taken care of by these methods.
+
+Number (3) on the list, smoothing, grants more flexibility by allowing for some non-linearity in the relations between features and the target variable,
+without the need to manually specify a specific mathematical form (as is necessary in polynomial regression).
+
+Methods (4), (5), and (6) are not only able to remove redundant features, but also can automatically recognize interactions between features.
+
+We currently fit:
+
+| Method | Package | Tune | Notes |
+|---|---|---|---|
+| `lasso` | glmnet | `lambda` | `alpha = 1` |
+| `ridge` | glmnet | `lambda` | `alpha = 0` |
+| `elastic_net` | glmnet | `lambda` | `alpha = 0.5` |
+
+TODO: SVM and others
+
+## Define options for training models
+
+| Column | Meaning |
+|---|---|
+| `key` | Name of the model |
+| `feature_set` | Key of a feature set from the features notebook |
+| `method` | Name of a method in `model_methods` |
+
+glmnet standardizes the columns, which cancels the naive Bayes scaling,
+so the glmnet methods are only fitted on the `binary` feature set.
+
+```{r}
+model_options <- tribble(
+    ~feature_set, ~method,
+    "binary", "lasso",
+    "binary", "ridge",
+    "binary", "elastic_net"
+) |>
+    mutate(key = paste(method, feature_set, sep = "_"))
+model_options
+```
+
+## Fit models
+
+Each model is tuned by cross-validation on the training tweets (the same 3 folds for every model),
+and scored on the validation tweets.
+
+```{r, fold = "Relevant functions for fitting models", code = readLines(here::here("R", "models.R"))}
+source(here::here("R", "models.R"))
+```
+
+```{r}
+fitted_models <- fit_all(model_options, feature_sets)
+fitted_models$results
+```
+
+## Evaluation
+
+```{r}
+plot_feature_results(
+    fitted_models$results,
+    baseline_key = "lasso_binary", title = "Validation AUC per model"
+)
+```
+
+How each model was tuned:
+
+```{r}
+plot_tuning(fitted_models$models)
+```
+
+```{r}
+plot_roc(fitted_models$models, feature_sets)
+```
+
+## Find the best model
+
+Choose the best model based on the highest validation AUC and refit it on all labelled tweets (training + validation).
+
+```{r}
+best_key <- fitted_models$results |>
+    slice_max(val_auc, n = 1, with_ties = FALSE) |>
+    pull(key)
+cat("Best model:", best_key, "\n")
+
+best_fit <- refit_best(best_key, model_options, feature_sets, data_split)
+```
+
+```{r, include = FALSE}
+saveRDS(best_fit, here::here(output_dir, "best_fit.rds"))
+```

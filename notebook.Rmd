@@ -10,11 +10,11 @@ jupyter:
 ```{r, include = FALSE}
 # Show chunks with a `fold` option as collapsible sections with that title
 knitr::knit_hooks$set(fold = function(before, options) {
-  if (before) {
-    paste0("\n\n<details><summary>", options$fold, "</summary>\n\n")
-  } else {
-    "\n\n</details>\n\n"
-  }
+    if (before) {
+        return(paste0("\n\n<details><summary>", options$fold, "</summary>\n\n"))
+    } else {
+        return("\n\n</details>\n\n")
+    }
 })
 ```
 

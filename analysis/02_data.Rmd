@@ -1,0 +1,54 @@
+```{r, include = FALSE}
+source(here::here("setup.R"))
+for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
+```
+
+# Get data
+
+## Load raw test and training data
+
+```{r}
+# Find the right file paths
+train_filepath <- dir(data_dir, pattern = "train.csv", recursive = TRUE, full.names = TRUE)
+test_filepath <- dir(data_dir, pattern = "test.csv", recursive = TRUE, full.names = TRUE)
+
+# Read in the csv files
+train_data_raw <- read_csv(train_filepath, col_types = "cci")
+test_data_raw <- read_csv(test_filepath, col_types = "cc")
+
+cat("Train data dimensions: ", dim(train_data_raw), "\n")
+head(train_data_raw)
+cat("Test data dimensions: ", dim(test_data_raw), "\n")
+head(test_data_raw)
+```
+
+```{r}
+train_data <- if (final_submission) train_data_raw else slice_head(train_data_raw, n = 15000)
+test_data <- test_data_raw
+```
+
+## Cleaning
+
+Remove duplicate tweets, keeping only the first instance of each tweet.
+
+```{r}
+train_data <- train_data |>
+    distinct(tweet, .keep_all = TRUE)
+```
+
+## Split training / validation
+
+We split the tweets before computing features to keep the model unbiased towards validation.
+
+```{r, fold = "Relevant functions for preparing data for models", code = readLines(here::here("R", "models_prep.R"))}
+source(here::here("R", "models_prep.R"))
+```
+
+```{r}
+data_split <- split_train_validation(train_data, target_col = "label", partition = 0.8)
+```
+
+```{r, include = FALSE}
+saveRDS(data_split, here::here(output_dir, "data_split.rds"))
+saveRDS(test_data, here::here(output_dir, "test_data.rds"))
+```

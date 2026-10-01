@@ -1,0 +1,265 @@
+```{r, include = FALSE}
+source(here::here("setup.R"))
+for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
+data_split <- readRDS(here::here(output_dir, "data_split.rds"))
+test_data <- readRDS(here::here(output_dir, "test_data.rds"))
+```
+
+# Features
+
+```{r, fold = "Relevant functions for tokenizing", code = readLines(here::here("R", "tokens.R"))}
+source(here::here("R", "tokens.R"))
+```
+
+```{r, fold = "Relevant functions for feature engineering", code = readLines(here::here("R", "features.R"))}
+source(here::here("R", "features.R"))
+```
+
+## Potential features
+
+**Notation:**
+
+- $d$: document
+- $t$: token
+- $n_{d,t}$: count of token $t$ in document $d$
+- $N$: total number of documents
+- $DF_t$: number of documents containing token $t$
+
+**Token values** (one column per token; `weighting` in `feature_config()`):
+
+| Feature | Equation / representation | Motivation / intuition | Source |
+|---|---|---|---|
+| **Document occurrence** | $\mathbf{1}(n_{d,t}>0)$ | 0–1 encoding of the presence or absence of a token in a document (here: tweet) | Competition |
+| **Token count** | $n_{d,t}$ | Simple counts of each token within documents (resulting in a document by term matrix, or DTM) | Competition |
+| **Log count** | $1+\log n_{d,t}$ | Repeats add less than the first occurrence | [Manning et al. (2008)](https://doi.org/10.1017/CBO9780511809071), §6.4.1 |
+| **Term frequency (TF)** | $TF_{d,t}=\frac{n_{d,t}}{\sum_{t} n_{d,t}}$ | The relative frequency of a term within a document | Competition |
+| **Inverse document frequency (IDF)** | $IDF_t=-\log\left(\frac{DF_t}{N}\right)$ | Inverse of the relative frequency with which a term occurs among the $N$ documents, on a log scale (a measure of 'surprise') | Competition |
+| **TF-IDF** | $TFIDF_{d,t}=TF_{d,t}\,IDF_t$ | The product of TF and IDF | Competition; [Spärck Jones (1972)](https://doi.org/10.1108/eb026526) |
+| **Naive Bayes ratio** | $\mathbf{1}(n_{d,t}>0)\, r_t$, $r_t=\log\frac{\text{share of offensive tweets with } t}{\text{share of other tweets with } t}$ | Scales each token by how strongly it points to one class | [Wang & Manning (2012)](https://aclanthology.org/P12-2018/); [James et al. (2021)](https://doi.org/10.1007/978-1-0716-1418-1), §4.4.4 |
+| **Vector space embeddings** (not used yet) | $\mathbf{z}_d\in\mathbb{R}^k$ | Advanced features like factor loadings (eigenvectors) from a PCA of the DTM, or "word2vec" representations, usually obtained by training neural networks on a very large corpus | Competition |
+
+**Which tokens** (`ngram_max`, `shingle_min`, `shingle_max`, `surprise_pct`):
+
+| Feature | Motivation / intuition | Source |
+|---|---|---|
+| **Word n-grams** | Keep phrases together: negations, expanded contractions ("is not"), emoji descriptions | [Silge & Robinson (2017)](https://www.tidytextmining.com/ngrams.html), ch. 4; [Davidson et al. (2017)](https://doi.org/10.1609/icwsm.v11i1.14955) |
+| **Character n-grams** | Link word forms ("idiot", "idiots") and misspellings | [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013); [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062) |
+| **Surprise filter** | Drop tokens in fewer than `surprise_pct`% of tweets ($IDF_t \le -\log(\text{pct}/100)$) | Competition |
+
+**Extra columns** (`length`, `lexicon`):
+
+| Feature | Motivation / intuition | Source |
+|---|---|---|
+| **Tweet length** | log number of words, mean word length; weak evidence, may reflect the source dataset | [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013) |
+| **Sentiment lexicon** | Number of negative / positive words (Bing lexicon); pools rare negative words | [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101) |
+
+## Options for feature sets
+
+Define options for different feature sets to compare.
+Each option is a row in a table, with the columns corresponding to the parameters of `feature_config()` below.
+
+```{r, fold = "Relevant functions for comparing feature sets", code = readLines(here::here("R", "feature_selection.R"))}
+source(here::here("R", "feature_selection.R"))
+```
+
+### Baseline feature set
+
+```{r}
+baseline_key <- "baseline_full_dtm_counts"
+baseline <- tribble(
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+    baseline_key, 1, 0, 0, "tf", 0, FALSE, FALSE, FALSE
+)
+```
+
+### Study `weighting`
+
+```{r}
+weighting_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+            "binary", 1, 0, 0, "binary", 0, FALSE, FALSE, FALSE,
+            "count", 1, 0, 0, "count", 0, FALSE, FALSE, FALSE,
+            "log_count", 1, 0, 0, "log_count", 0, FALSE, FALSE, FALSE,
+            "tf", 1, 0, 0, "tf", 0, FALSE, FALSE, FALSE,
+            "tf_idf", 1, 0, 0, "tf_idf", 0, FALSE, FALSE, FALSE
+        )
+    )
+
+study_options <- function(options, title) {
+    # display options, evaluate, show and plot result
+    cat("Studying", title, "options:\n")
+    print(options)
+    feature_results <- evaluate_feature_options(options, data_split)
+    cat("Results for", title, "options:\n")
+    print(feature_results |> select(key, n_features, val_auc, seconds))
+    return(feature_results)
+}
+
+if (run_studies) {
+    study_weighting_results <- study_options(weighting_options, "weighting")
+    plot_feature_results(study_weighting_results, baseline = baseline_key)
+}
+```
+
+On the slice of training data, "binary" weighting is the best option, and it's also the simplest.
+
+```{r}
+chosen_weighting <- "binary"
+```
+
+### Study `ngram_max`
+
+```{r}
+ngram_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+            "ngrams_2", 2, 0, 0, chosen_weighting, 0, FALSE, FALSE, FALSE,
+            "ngrams_3", 3, 0, 0, chosen_weighting, 0, FALSE, FALSE, FALSE,
+            "ngrams_5", 5, 0, 0, chosen_weighting, 0, FALSE, FALSE, FALSE,
+            "ngrams_10", 10, 0, 0, chosen_weighting, 0, FALSE, FALSE, FALSE
+        )
+    )
+
+if (run_studies) {
+    study_ngram_results <- study_options(ngram_options, "ngram_max")
+    plot_feature_results(study_ngram_results, baseline = baseline_key)
+}
+```
+
+10 ngrams is clearly the best option, but it is also the most expensive in terms of features and computation time.
+For the sliced data, it has > 13 times as many features as the next best option (2 ngrams) and takes ~4 times as long to compute.
+So, for the sake of speed, we will choose 2 ngrams as the best option for now.
+
+```{r}
+chosen_ngram_max <- 2
+```
+
+### Study `surprise_pct`
+
+```{r}
+surprise_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, FALSE, FALSE, FALSE,
+            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, FALSE, FALSE, FALSE,
+            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, FALSE, FALSE, FALSE,
+            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, FALSE, FALSE, FALSE,
+            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, FALSE, FALSE, FALSE
+        )
+    )
+
+if (run_studies) {
+    study_surprise_results <- study_options(surprise_options, "surprise_pct")
+    plot_feature_results(study_surprise_results, baseline = baseline_key)
+}
+```
+
+The surprise percentage of 0.05 is the best option, although all perform quite similarly until we get to 0.5.
+We will stick with 0.05%.
+
+```{r}
+chosen_surprise_pct <- 0.05
+```
+
+### Study `shingle_min` and `shingle_max`
+
+```{r}
+shingle_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE # nolint: line_length_linter.
+        )
+    )
+
+if (run_studies) {
+    study_shingle_results <- study_options(shingle_options, "shingle_min and shingle_max")
+    plot_feature_results(study_shingle_results, baseline = baseline_key)
+}
+```
+
+The shingles from 2 to 5 characters is the best option, and while it's the most expensive in terms of features and computation time,
+the difference is not as extreme, so we will stick with it.
+
+```{r}
+chosen_shingle_min <- 2
+chosen_shingle_max <- 5
+```
+
+### Study `length` and `lexicon`
+
+```{r}
+length_lexicon_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+            "neither", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, FALSE, # nolint: line_length_linter.
+            "length", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, TRUE, FALSE, FALSE, # nolint: line_length_linter.
+            "lexicon", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, FALSE, TRUE, FALSE, # nolint: line_length_linter.
+            "length_lexicon", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, TRUE, TRUE, FALSE # nolint: line_length_linter.
+        )
+    )
+
+if (run_studies) {
+    study_length_lexicon_results <- study_options(length_lexicon_options, "length and lexicon")
+    plot_feature_results(study_length_lexicon_results, baseline = baseline_key)
+}
+```
+
+Adding the length and/or lexicon columns does not improve the validation AUC,
+so we will not include them in the final feature set.
+
+```{r}
+chosen_length <- FALSE
+chosen_lexicon <- FALSE
+```
+
+### Final set of features
+
+```{r}
+feature_options <- tribble(
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
+    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_length, chosen_lexicon, FALSE, # nolint: line_length_linter.
+    "nb", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_length, chosen_lexicon, TRUE # nolint: line_length_linter.
+)
+feature_options
+```
+
+## Build the chosen feature sets
+
+Each chosen feature set is built for the training and validation tweets,
+so the models can be compared on all of them.
+
+```{r}
+feature_sets <- feature_options$key |>
+    set_names() |>
+    map(\(feature_key) {
+        config <- config_from_options(feature_options, feature_key)
+        train <- prepare_features(data_split$train, config)
+        val <- prepare_features(data_split$val, recipe = train$recipe)
+
+        return(list(config = config, train = train[c("x", "y")], val = val[c("x", "y")]))
+    })
+
+tibble(
+    feature_set = names(feature_sets),
+    n_features = map_int(feature_sets, \(feature_set) ncol(feature_set$train$x))
+)
+```
+
+```{r, include = FALSE}
+saveRDS(feature_sets, here::here(output_dir, "feature_sets.rds"))
+```
