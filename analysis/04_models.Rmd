@@ -98,7 +98,7 @@ best_key <- fitted_models$results |>
     pull(key)
 cat("Best model:", best_key, "\n")
 
-best_fit <- refit_best(best_key, model_options, feature_sets)
+best_fit <- refit_best(best_key, model_options, feature_sets, fitted_models$models)
 ```
 
 ```{r, include = FALSE}

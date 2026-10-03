@@ -18,28 +18,42 @@ fit_glmnet <- function(x, y, foldid, alpha) {
         cv_se = fit$cvsd
     )
 
-    return(list(fit = fit, tuning = tuning))
+    return(list(fit = fit, lambda = fit$lambda.min, tuning = tuning))
+}
+
+#' Refit a glmnet model on new data with the lambda chosen by its cross-validation
+#' @param model A model from fit_glmnet()
+#' @return A list like the one from fit_glmnet()
+refit_glmnet <- function(x, y, model, alpha) {
+    # glmnet works best on a sequence of lambdas, so the path is fitted down to the chosen one
+    lambdas <- model$fit$lambda[model$fit$lambda >= model$lambda]
+    fit <- glmnet::glmnet(x, y, family = "binomial", alpha = alpha, lambda = lambdas)
+
+    return(list(fit = fit, lambda = model$lambda, tuning = model$tuning))
 }
 
 #' Predict probabilities with a glmnet model
 predict_glmnet <- function(model, x) {
-    pred <- predict(model$fit, x, s = "lambda.min", type = "response") |> drop()
+    pred <- predict(model$fit, x, s = model$lambda, type = "response") |> drop()
     return(pred)
 }
 
 
-#' Fit and predict functions of each method
+#' Fit, refit, and predict functions of each method
 model_methods <- list(
     lasso = list(
         fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 1),
+        refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 1),
         predict = predict_glmnet
     ),
     ridge = list(
         fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 0),
+        refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 0),
         predict = predict_glmnet
     ),
     elastic_net = list(
         fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 0.5),
+        refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 0.5),
         predict = predict_glmnet
     )
     # svm_linear = list(
@@ -112,15 +126,14 @@ fit_all <- function(options, feature_sets) {
 }
 
 #' Refit a model on all labelled tweets (training + validation)
-refit_best <- function(best_key, options, feature_sets) {
+refit_best <- function(best_key, options, feature_sets, models) {
     option <- options |> filter(key == best_key)
     features <- feature_sets[[option$feature_set]]
 
     x <- rbind(features$train$x, features$val$x)
     y <- c(features$train$y, features$val$y)
-    foldid <- sample(rep_len(1:3, length(y)))
 
-    model <- model_methods[[option$method]]$fit(x, y, foldid)
+    model <- model_methods[[option$method]]$refit(x, y, models[[best_key]])
     model$method <- option$method
     model$feature_set <- option$feature_set
 
