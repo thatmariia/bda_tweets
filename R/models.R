@@ -112,19 +112,19 @@ fit_all <- function(options, feature_sets) {
 }
 
 #' Refit a model on all labelled tweets (training + validation)
-refit_best <- function(best_key, options, feature_sets, data_split) {
+refit_best <- function(best_key, options, feature_sets) {
     option <- options |> filter(key == best_key)
-    config <- feature_sets[[option$feature_set]]$config
+    features <- feature_sets[[option$feature_set]]
 
-    all_data <- bind_rows(data_split$train, data_split$val)
-    all <- prepare_features(all_data, config)
-    foldid <- sample(rep_len(1:3, length(all$y)))
+    x <- rbind(features$train$x, features$val$x)
+    y <- c(features$train$y, features$val$y)
+    foldid <- sample(rep_len(1:3, length(y)))
 
-    model <- model_methods[[option$method]]$fit(all$x, all$y, foldid)
+    model <- model_methods[[option$method]]$fit(x, y, foldid)
     model$method <- option$method
     model$feature_set <- option$feature_set
 
-    return(list(key = best_key, recipe = all$recipe, model = model))
+    return(list(key = best_key, model = model))
 }
 
 #' Plot how every model was tuned: cross-validated AUC per value of its tuning parameter

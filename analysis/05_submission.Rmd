@@ -2,6 +2,7 @@
 source(here::here("setup.R"))
 for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
 best_fit <- readRDS(here::here(output_dir, "best_fit.rds"))
+feature_sets <- readRDS(here::here(output_dir, "feature_sets.rds"))
 test_data <- readRDS(here::here(output_dir, "test_data.rds"))
 ```
 
@@ -9,11 +10,11 @@ test_data <- readRDS(here::here(output_dir, "test_data.rds"))
 
 ## Generating predictions for each tweet
 
-The test tweets get the same features as the tweets the best model was refitted on.
+The test features were built in the features notebook, with the same feature set as the best model.
 
 ```{r}
-test <- prepare_features(test_data, recipe = best_fit$recipe)
-predictions <- predict_model(best_fit$model, test$x)
+x_test <- feature_sets[[best_fit$model$feature_set]]$test$x
+predictions <- predict_model(best_fit$model, x_test)
 str(predictions)
 ```
 

@@ -233,15 +233,17 @@ chosen_lexicon <- FALSE
 feature_options <- tribble(
     ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, ~nb_scaling, # nolint: line_length_linter.
     "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_length, chosen_lexicon, FALSE, # nolint: line_length_linter.
-    "nb", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_length, chosen_lexicon, TRUE # nolint: line_length_linter.
+    # "nb", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_length, chosen_lexicon, TRUE # nolint: line_length_linter.
 )
 feature_options
 ```
 
 ## Build the chosen feature sets
 
-Each chosen feature set is built for the training and validation tweets,
+Each chosen feature set is built for the training, validation and test tweets,
 so the models can be compared on all of them.
+The features are learned on the training tweets only, and reused as they are when the best model
+is refitted on the training and validation tweets together.
 
 ```{r}
 feature_sets <- feature_options$key |>
@@ -250,8 +252,15 @@ feature_sets <- feature_options$key |>
         config <- config_from_options(feature_options, feature_key)
         train <- prepare_features(data_split$train, config)
         val <- prepare_features(data_split$val, recipe = train$recipe)
+        test <- prepare_features(test_data, recipe = train$recipe)
 
-        return(list(config = config, train = train[c("x", "y")], val = val[c("x", "y")]))
+        feature_set <- list(
+            config = config,
+            train = train[c("x", "y")],
+            val = val[c("x", "y")],
+            test = test["x"]
+        )
+        return(feature_set)
     })
 
 tibble(

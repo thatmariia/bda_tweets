@@ -1,7 +1,6 @@
 ```{r, include = FALSE}
 source(here::here("setup.R"))
 for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
-data_split <- readRDS(here::here(output_dir, "data_split.rds"))
 feature_sets <- readRDS(here::here(output_dir, "feature_sets.rds"))
 ```
 
@@ -99,7 +98,7 @@ best_key <- fitted_models$results |>
     pull(key)
 cat("Best model:", best_key, "\n")
 
-best_fit <- refit_best(best_key, model_options, feature_sets, data_split)
+best_fit <- refit_best(best_key, model_options, feature_sets)
 ```
 
 ```{r, include = FALSE}
