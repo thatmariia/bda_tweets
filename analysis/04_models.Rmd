@@ -13,7 +13,6 @@ Methods:
 3. Smoothing
 4. Regression and Classification trees (CART)
 5. Random Forests
-6. Support Vector Machines
 
 Methods (1) and (2) are able to take many features while automatically reducing redundant flexibility to any desired level.
 Multicollinearity (highly correlated linear combinations of features) is also automatically taken care of by these methods.
@@ -21,7 +20,7 @@ Multicollinearity (highly correlated linear combinations of features) is also au
 Number (3) on the list, smoothing, grants more flexibility by allowing for some non-linearity in the relations between features and the target variable,
 without the need to manually specify a specific mathematical form (as is necessary in polynomial regression).
 
-Methods (4), (5), and (6) are not only able to remove redundant features, but also can automatically recognize interactions between features.
+Methods (4) and (5) are not only able to remove redundant features, but also can automatically recognize interactions between features.
 
 We currently fit:
 
@@ -31,7 +30,7 @@ We currently fit:
 | `ridge` | glmnet | `lambda` | `alpha = 0` |
 | `elastic_net` | glmnet | `lambda` | `alpha = 0.5` |
 
-TODO: SVM and others
+TODO: other methods
 
 ## Define options for training models
 
@@ -40,9 +39,6 @@ TODO: SVM and others
 | `key` | Name of the model |
 | `feature_set` | Key of a feature set from the features notebook |
 | `method` | Name of a method in `model_methods` |
-
-glmnet standardizes the columns, which cancels the naive Bayes scaling,
-so the glmnet methods are only fitted on the `binary` feature set.
 
 ```{r}
 model_options <- tribble(

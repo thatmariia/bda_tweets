@@ -5,7 +5,7 @@
 #' Split tweets into training and validation sets
 #'
 #' Splits the raw data, before computing features, so that everything learned for
-#' the features (vocabulary, IDF, naive Bayes ratios) comes from the training part only.
+#' the features (vocabulary, IDF) comes from the training part only.
 #'
 #' @param data A data frame of tweets
 #' @param target_col The label column; the split keeps its class balance

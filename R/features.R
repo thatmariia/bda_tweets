@@ -7,7 +7,7 @@ feature_config <- function(
     ngram_max = 1, shingle_min = 0, shingle_max = 0,
     weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
     surprise_pct = 0,
-    length = FALSE, lexicon = FALSE, nb_scaling = FALSE
+    length = FALSE, lexicon = FALSE
 ) {
     config <- list(
         ngram_max = ngram_max,
@@ -16,8 +16,7 @@ feature_config <- function(
         weighting = match.arg(weighting),
         surprise_pct = surprise_pct,
         length = length,
-        lexicon = lexicon,
-        nb_scaling = nb_scaling
+        lexicon = lexicon
     )
 
     return(config)
@@ -28,7 +27,7 @@ feature_config <- function(
 #'
 #' The tweets are processed in chunks, so the tokens of all tweets never have to fit
 #' in memory at the same time. Fitting goes over the chunks twice: first to count the
-#' tokens (for the vocabulary, IDF and naive Bayes ratios), then to build the matrix.
+#' tokens (for the vocabulary and IDF), then to build the matrix.
 #'
 #' @param data A data frame with columns `id` and `tweet` (and `label` for training data)
 #' @param config Settings from feature_config(); only when fitting on training data
@@ -50,9 +49,9 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
         return(tokens)
     }
 
-    # vocabulary, IDF and naive Bayes ratios, learned on training data only
+    # vocabulary and IDF, learned on training data only
     if (fitting) {
-        chunk_counts <- map(chunks, \(chunk) count_tokens(tokenize(chunk), chunk))
+        chunk_counts <- map(chunks, \(chunk) count_tokens(tokenize(chunk)))
         n_docs <- sum(map_int(chunk_counts, \(counts) counts$n_docs))
         token_counts <- chunk_counts |>
             map(\(counts) counts$tokens) |>
@@ -64,13 +63,11 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
             config = config,
             vocab = fit_vocabulary(token_counts, n_docs, config$surprise_pct)
         )
-        if (config$nb_scaling) recipe$nb_ratios <- fit_nb_ratios(token_counts, recipe$vocab)
     }
 
     # weighted tokens -> sparse matrix, one chunk at a time
     chunk_matrices <- map(chunks, \(chunk) {
         values <- tokenize(chunk) |> weight_tokens(recipe$vocab, config$weighting)
-        if (config$nb_scaling) values <- nb_scale(values, recipe$nb_ratios)
         return(tokens_to_sparse_matrix(values, chunk$id, recipe$vocab))
     })
     x <- do.call(rbind, unname(chunk_matrices))
@@ -83,17 +80,10 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
 }
 
 #' Count the tweets that contain each token, in one chunk of training tweets
-#' (and how many of them are offensive or not, for the naive Bayes ratios)
 #' @return A list with `tokens` (one row per token) and `n_docs` (tweets with any token)
-count_tokens <- function(tokens, chunk) {
+count_tokens <- function(tokens) {
     token_counts <- tokens |>
-        inner_join(select(chunk, id, label), by = "id") |>
-        group_by(token) |>
-        summarise(
-            doc_count = n(), # tokens has one row per tweet and token
-            n_offensive = sum(label == 1),
-            n_other = sum(label == 0)
-        )
+        count(token, name = "doc_count") # tokens has one row per tweet and token
 
     return(list(tokens = token_counts, n_docs = n_distinct(tokens$id)))
 }
@@ -143,36 +133,6 @@ tokens_to_sparse_matrix <- function(values, ids, vocab) {
     )
 
     return(x)
-}
-
-#' Learn naive Bayes log-count ratios from the token counts of the training tweets
-#'
-#' For each token: log of a ratio:
-#' numerator: share of offensive tweets that contain the token
-#' denominator: share of non-offensive tweets that contain the token
-fit_nb_ratios <- function(token_counts, vocab, alpha = 1) {
-    ratios <- token_counts |>
-        semi_join(vocab, by = "token") |>
-        mutate(
-            n_offensive = n_offensive + alpha,
-            n_other = n_other + alpha
-        ) |>
-        mutate(nb_ratio = log(
-            (n_offensive / sum(n_offensive)) / (n_other / sum(n_other))
-        )) |>
-        select(token, nb_ratio)
-
-    return(ratios)
-}
-
-#' Replace token values by 0/1 times the token's naive Bayes ratio
-nb_scale <- function(values, ratios) {
-    scaled <- values |>
-        inner_join(ratios, by = "token") |>
-        mutate(value = nb_ratio) |> # 1 (token present) * ratio
-        select(id, token, value)
-
-    return(scaled)
 }
 
 #' Add per-tweet columns to the matrix, matching rows by id

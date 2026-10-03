@@ -56,14 +56,6 @@ model_methods <- list(
         refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 0.5),
         predict = predict_glmnet
     )
-    # svm_linear = list(
-    #     fit = \(x, y, foldid) fit_svm(x, y, foldid, kernel = "linear"),
-    #     predict = predict_svm
-    # ),
-    # svm_radial = list(
-    #     fit = \(x, y, foldid) fit_svm(x, y, foldid, kernel = "radial"),
-    #     predict = predict_svm
-    # )
 )
 
 #' Predict with a model from any method
