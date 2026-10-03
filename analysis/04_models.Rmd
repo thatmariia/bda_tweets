@@ -71,6 +71,12 @@ fitted_models$results
 
 ## Evaluation
 
+The validation AUC of each model.
+
+```{r}
+plot_model_auc(fitted_models$results)
+```
+
 ```{r}
 plot_feature_results(
     fitted_models$results,

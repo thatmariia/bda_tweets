@@ -140,6 +140,19 @@ refit_best <- function(best_key, options, feature_sets, models) {
     return(list(key = best_key, model = model))
 }
 
+#' Bar chart of the validation AUC of every model
+plot_model_auc <- function(results) {
+    plot <- results |>
+        mutate(key = fct_inorder(key)) |>
+        ggplot(aes(x = key, y = val_auc)) +
+        geom_col() +
+        ylim(0, 1) +
+        labs(title = "Validation AUC per model", x = NULL, y = "Validation AUC") +
+        theme_minimal()
+
+    return(plot)
+}
+
 #' Plot how every model was tuned: cross-validated AUC per value of its tuning parameter
 plot_tuning <- function(models) {
     tuning <- imap_dfr(models, \(model, key) mutate(model$tuning, key = key)) |>
