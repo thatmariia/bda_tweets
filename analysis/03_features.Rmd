@@ -203,7 +203,7 @@ stopwords_options <- baseline |>
 if (run_studies) study_stopwords_results <- study_options(stopwords_options, "stopwords")
 ```
 
-TODO: conclusion after running the study.
+The study shows that removing stopwords has a negative effect on the model's performance, so we will keep them.
 
 ```{r}
 chosen_stopwords <- "none"
