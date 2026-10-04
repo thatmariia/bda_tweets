@@ -190,3 +190,50 @@ plot_roc <- function(models, feature_sets) {
 
     return(plot)
 }
+
+#' Standardized coefficients of a glmnet model
+#' @param x The training matrix the model was fitted on (for the standard deviations)
+glmnet_importance <- function(model, x) {
+    coefs <- coef(model$fit, s = model$lambda)[-1, 1] # without the intercept
+    column_sd <- sqrt(pmax(Matrix::colMeans(x^2) - Matrix::colMeans(x)^2, 0))
+
+    importance <- tibble(
+        column = names(coefs),
+        coefficient = coefs,
+        standardized = coefs * column_sd[names(coefs)]
+    ) |>
+        filter(standardized != 0)
+
+    return(importance)
+}
+
+#' Plot the features that influence the prediction towards offensive or not offensive
+plot_important_words <- function(model, x, most_n = 15, least_n = 15) {
+    importance <- glmnet_importance(model, x)
+
+    top <- bind_rows(
+        importance |> slice_max(standardized, n = most_n),
+        importance |> slice_min(standardized, n = least_n)
+    ) |>
+        filter(standardized != 0) |>
+        mutate(
+            direction = if_else(standardized > 0, "towards offensive", "towards not offensive"),
+            label = fct_reorder(column, standardized)
+        )
+
+    plot <- ggplot(top, aes(x = standardized, y = label, fill = direction)) +
+        geom_col() +
+        geom_vline(xintercept = 0, colour = "grey") +
+        scale_fill_manual(values = c(
+            "towards offensive" = "#e34948",
+            "towards not offensive" = "#2a78d6"
+        )) +
+        labs(
+            title = "Feature impacts of the best model",
+            x = "Standardized coefficient", y = NULL, fill = NULL
+        ) +
+        theme_minimal() +
+        theme(legend.position = "top")
+
+    return(plot)
+}
