@@ -6,9 +6,11 @@
 #' @param alpha 1 = lasso, 0 = ridge, in between = elastic net
 #' @return A list with the fitted model and its tuning results
 fit_glmnet <- function(x, y, foldid, alpha) {
+    # the folds are fitted in parallel, on the backend registered in setup.R
     fit <- glmnet::cv.glmnet(
         x, y,
-        family = "binomial", alpha = alpha, foldid = foldid, type.measure = "auc"
+        family = "binomial", alpha = alpha, foldid = foldid, type.measure = "auc",
+        parallel = TRUE
     )
 
     tuning <- tibble(
@@ -94,19 +96,13 @@ fit_all <- function(options, feature_sets) {
     n_train <- length(feature_sets[[1]]$train$y)
     foldid <- sample(rep_len(1:3, n_train))
 
-    # fir models
-    fits <- parallel::mclapply(
-        transpose(select(options, feature_set, method)),
-        \(option) {
-            fit <- try(
-                fit_option(option$feature_set, option$method, feature_sets, foldid),
-                silent = TRUE
-            )
-            return(fit)
-        },
-        mc.cores = n_cores,
-        mc.preschedule = FALSE # the next model starts as soon as a core is free
-    )
+    fits <- map(transpose(select(options, feature_set, method)), \(option) {
+        fit <- try(
+            fit_option(option$feature_set, option$method, feature_sets, foldid),
+            silent = TRUE
+        )
+        return(fit)
+    })
 
     # report any failed fits, keep the others
     failed <- map_lgl(fits, \(fit) inherits(fit, "try-error"))

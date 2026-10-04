@@ -19,6 +19,7 @@ n_cores <- if (.Platform$OS.type == "windows") {
 } else {
     max(1, parallel::detectCores() - 1)
 }
+if (n_cores > 1) doMC::registerDoMC(cores = n_cores) else foreach::registerDoSEQ()
 
 data_dir <- if (on_kaggle) {
     list.files("/kaggle/input/competitions", full.names = TRUE)[1]
