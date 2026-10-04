@@ -21,7 +21,7 @@ tokenize_data <- function(data, token_type = "words", ...) {
 #'      "none" (default), "snowball", or "smart"
 #' @return One row per tweet and token: `id`, `token`, `n`
 tokenize_tweets <- function(
-    data, ngram_max = 1, shingle_min = 0, shingle_max = 0, stopwords = "none"
+  data, ngram_max = 1, shingle_min = 0, shingle_max = 0, stopwords = "none"
 ) {
     stopifnot(all(c("id", "tweet") %in% colnames(data)), ngram_max >= 1)
     removed_words <- stopword_list(stopwords)

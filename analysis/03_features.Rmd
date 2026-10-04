@@ -15,8 +15,8 @@ source(here::here("R", "tokens.R"))
 source(here::here("R", "features.R"))
 ```
 
-```{r, fold = "List of offensive words", code = readLines(here::here("R", "offensive_words.R"))}
-source(here::here("R", "offensive_words.R"))
+```{r, fold = "Lists of special words", code = readLines(here::here("R", "special_words.R"))}
+source(here::here("R", "special_words.R"))
 ```
 
 ## Features
@@ -31,9 +31,8 @@ source(here::here("R", "offensive_words.R"))
 
 The features are built in the same steps as in the code: tokens, token values, and extra columns.
 
-**Tokens** (`tokenize_tweets()` in `R/tokens.R` and `fit_vocabulary()` in `R/features.R`):
+**Tokens** (`tokenize_tweets()`, `fit_vocabulary()`):
 the tweets (variable with character elements) are split into tokens, and every token that is kept becomes a column.
-These options decide which tokens there are.
 
 | option | tokens | example columns | description and justification |
 |---|---|---|---|
@@ -43,7 +42,7 @@ These options decide which tokens there are.
 | `surprise_pct` | only the tokens occurring in at least `surprise_pct`% of the training tweets | | Rare tokens ($IDF_t > -\log(\text{surprise\_pct}/100)$, see below) are dropped. Learned on the training tweets only. |
 
 **Token values** (`weight_tokens()` in `R/features.R`; option `weighting`):
-there is one column per token, and `weighting` decides which value goes in it.
+the values in each token column are determined by the `weighting` option.
 
 | `weighting` | value in each token column | description and justification |
 |---|---|---|
@@ -57,17 +56,17 @@ there is one column per token, and `weighting` decides which value goes in it.
 `extra_features()` splits the tweets (variable with character elements) into words,
 and adds one column per feature, with one value per tweet.
 
-| function | column | value per tweet | description and justification |
-|---|---|---|---|
-| `extra_features()` | `log_n_words` | number of words (on a log scale) | Calculates the number of words per tweet. It may be that there is a relation between number of words and offensive language. The log scale keeps the few very long tweets from dominating. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
-| | `mean_word_length` | mean length of words | Calculates the mean length of words per tweet. It may be that offensive tweets use, for example, shorter words. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
-| | `long_word_share` | proportion of long words (7 or more letters) in a tweet | Measures the proportion of long words (many characters) in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less complex words. |
-| | `unique_word_share` | proportion of unique words to all words | Measures the proportion of unique words to all words in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less unique words. |
-| | `lex_negative`, `lex_positive` | sum of negative words and sum of positive words (Bing list) | Uses the Bing list from the tidytext package as reference to calculate per tweet how many positive or negative words have been used. It is plausible that offensive tweets use more negative words and fewer positive words. Counting all negative words together also pools rare negative words, which have too few examples to get a reliable coefficient of their own. Sources: [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101). |
-| | `lex_negative_share`, `lex_positive_share` | proportion of negative words and proportion of positive words | The same sums relative to the length of the tweet, so a long tweet with a few negative words differs from a short tweet that is mostly negative words. |
-| | `lex_more_negative` | either 0 ("positive") or 1 ("negative") | Measures if the tweet is rather positive or negative given the sums of positive and negative words. |
-| | `question_word_share` | proportion of question words (who, what, where, when, why, how, which, whose, whom) | Calculates the proportion of used question words in a tweet given a benchmark list with question words. It could be that there is a relation between used question words and offensive language. |
-| | `n_offensive_words` | sum of offensive benchmark words (`R/offensive_words.R`) | Uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
+| column | value per tweet | description and justification |
+|---|---|---|
+| `log_n_words` | number of words (on a log scale) | Calculates the number of words per tweet. It may be that there is a relation between number of words and offensive language. The log scale keeps the few very long tweets from dominating. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
+| `mean_word_length` | mean length of words | Calculates the mean length of words per tweet. It may be that offensive tweets use, for example, shorter words. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
+| `long_word_share` | proportion of long words (7 or more letters) in a tweet | Measures the proportion of long words (many characters) in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less complex words. |
+| `unique_word_share` | proportion of unique words to all words | Measures the proportion of unique words to all words in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less unique words. |
+| `lex_negative`, `lex_positive` | sum of negative words and sum of positive words (Bing list) | Uses the Bing list from the tidytext package as reference to calculate per tweet how many positive or negative words have been used. It is plausible that offensive tweets use more negative words and fewer positive words. Counting all negative words together also pools rare negative words, which have too few examples to get a reliable coefficient of their own. Sources: [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101). |
+| `lex_negative_share`, `lex_positive_share` | proportion of negative words and proportion of positive words | The same sums relative to the length of the tweet, so a long tweet with a few negative words differs from a short tweet that is mostly negative words. |
+| `lex_more_negative` | either 0 ("positive") or 1 ("negative") | Measures if the tweet is rather positive or negative given the sums of positive and negative words. |
+| `question_word_share` | proportion of question words (who, what, where, when, why, how, which, whose, whom) | Calculates the proportion of used question words in a tweet given a benchmark list with question words. It could be that there is a relation between used question words and offensive language. |
+| `n_offensive_words` | sum of offensive benchmark words | Uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
 
 ## Options for feature sets
 
@@ -111,7 +110,8 @@ study_options <- function(options, title) {
     cat("Results for", title, "options:\n")
     print(feature_results |> select(key, n_features, val_auc, seconds))
     print(plot_feature_results(
-        feature_results, baseline_key = baseline_key,
+        feature_results,
+        baseline_key = baseline_key,
         title = paste0("Validation AUC for ", title, " option")
     ))
     return(feature_results)
@@ -274,6 +274,7 @@ feature_options <- tribble(
     ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
     "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
 )
+cat("Chosen feature set:\n")
 feature_options
 ```
 
@@ -281,7 +282,7 @@ feature_options
 
 Each chosen feature set is built for the training, validation and test tweets,
 so the models can be compared on all of them.
-The features are learned on the training tweets only, and reused as they are when the best model
+The features are learned on the training tweets only and reused when the best model
 is refitted on the training and validation tweets together.
 
 ```{r}
@@ -301,6 +302,7 @@ feature_sets <- feature_options$key |>
         return(feature_set)
     })
 
+cat("Feature sets built for training, validation, and test tweets:\n")
 tibble(
     feature_set = names(feature_sets),
     n_features = map_int(feature_sets, \(feature_set) ncol(feature_set$train$x))

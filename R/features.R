@@ -5,11 +5,11 @@
 #' Settings for one feature set
 #' @param extras Add the extra per-tweet columns (length, lexicon, question and offensive words)
 feature_config <- function(
-    ngram_max = 1, shingle_min = 0, shingle_max = 0,
-    weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
-    surprise_pct = 0,
-    stopwords = c("none", "snowball", "smart"),
-    extras = FALSE
+  ngram_max = 1, shingle_min = 0, shingle_max = 0,
+  weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
+  surprise_pct = 0,
+  stopwords = c("none", "snowball", "smart"),
+  extras = FALSE
 ) {
     config <- list(
         ngram_max = ngram_max,

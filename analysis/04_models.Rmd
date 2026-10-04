@@ -48,6 +48,8 @@ model_options <- tribble(
     "binary", "elastic_net"
 ) |>
     mutate(key = paste(method, feature_set, sep = "_"))
+
+cat("Model options:\n")
 model_options
 ```
 
@@ -61,7 +63,9 @@ source(here::here("R", "models.R"))
 ```
 
 ```{r}
+cat("Fitting models...\n")
 fitted_models <- fit_all(model_options, feature_sets)
+cat("Results of fitted models:\n")
 fitted_models$results
 ```
 
@@ -100,6 +104,7 @@ best_key <- fitted_models$results |>
     pull(key)
 cat("Best model:", best_key, "\n")
 
+cat("Refitting the best model on all labelled tweets (training + validation)...\n")
 best_fit <- refit_best(best_key, model_options, feature_sets, fitted_models$models)
 ```
 

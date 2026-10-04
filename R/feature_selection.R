@@ -71,7 +71,7 @@ config_from_options <- function(options, chosen_key) {
 #' @param baseline_key Key of the feature set to compare against; skipped if it isn't in `results`
 #' @param title Title of the plot
 plot_feature_results <- function(
-    results, baseline_key = "baseline_full_dtm_counts", title = "Validation AUC per feature set"
+  results, baseline_key = "baseline_full_dtm_counts", title = "Validation AUC per feature set"
 ) {
     baseline_auc <- results |>
         filter(key == baseline_key) |>

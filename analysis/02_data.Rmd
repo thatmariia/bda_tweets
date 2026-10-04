@@ -25,6 +25,7 @@ head(test_data_raw)
 ```{r}
 train_data <- if (final_submission) train_data_raw else slice_head(train_data_raw, n = 15000)
 test_data <- test_data_raw
+cat("Using ", nrow(train_data), " training rows and ", nrow(test_data), " test rows.\n")
 ```
 
 ## Cleaning
@@ -40,12 +41,14 @@ train_data <- train_data |>
 
 We split the tweets before computing features to keep the model unbiased towards validation.
 
-```{r, fold = "Relevant functions for preparing data for models", code = readLines(here::here("R", "models_prep.R"))}
-source(here::here("R", "models_prep.R"))
+```{r, fold = "Relevant functions for preparing data for models", code = readLines(here::here("R", "data.R"))}
+source(here::here("R", "data.R"))
 ```
 
 ```{r}
-data_split <- split_train_validation(train_data, target_col = "label", partition = 0.8)
+p <- 0.8
+cat("Splitting training data into ", p * 100, "% training and ", (1 - p) * 100, "% validation.\n")
+data_split <- split_train_validation(train_data, target_col = "label", partition = p)
 ```
 
 ```{r, include = FALSE}
