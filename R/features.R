@@ -5,11 +5,11 @@
 #' Settings for one feature set
 #' @param extras Add the extra per-tweet columns (length, lexicon, question and offensive words)
 feature_config <- function(
-  ngram_max = 1, shingle_min = 0, shingle_max = 0,
-  weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
-  surprise_pct = 0,
-  stopwords = c("none", "snowball", "smart"),
-  extras = FALSE
+    ngram_max = 1, shingle_min = 0, shingle_max = 0,
+    weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
+    surprise_pct = 0,
+    stopwords = c("none", "snowball", "smart"),
+    extras = FALSE
 ) {
     config <- list(
         ngram_max = ngram_max,
@@ -35,8 +35,12 @@ feature_config <- function(
 #' @param config Settings from feature_config(); only when fitting on training data
 #' @param recipe The `recipe` returned when fitting on training data
 #' @param chunk_size Number of tweets per chunk
+#' @param n_cores Number of chunks processed at the same time
+#'      (keep 1 when prepare_features() itself already runs in parallel, as in the studies)
 #' @return A list with `x` (sparse matrix), `y` (labels or NULL), and `recipe`
-prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20000) {
+prepare_features <- function(
+    data, config = NULL, recipe = NULL, chunk_size = 20000, n_cores = 1
+) {
     stopifnot(all(c("id", "tweet") %in% colnames(data)))
     stopifnot(xor(is.null(config), is.null(recipe))) # either config or recipe must be provided
 
@@ -53,9 +57,13 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
         return(tokens)
     }
 
-    # vocabulary and IDF, learned on training data only
+    # vocabulary and IDF, learned on training data only (chunks in parallel)
     if (fitting) {
-        chunk_counts <- map(chunks, \(chunk) count_tokens(tokenize(chunk)))
+        chunk_counts <- parallel::mclapply(
+            chunks, \(chunk) count_tokens(tokenize(chunk)),
+            mc.cores = n_cores
+        )
+        stopifnot(!map_lgl(chunk_counts, \(counts) inherits(counts, "try-error"))) # a chunk failed
         n_docs <- sum(map_int(chunk_counts, \(counts) counts$n_docs))
         token_counts <- chunk_counts |>
             map(\(counts) counts$tokens) |>
@@ -69,11 +77,12 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
         )
     }
 
-    # weighted tokens -> sparse matrix, one chunk at a time
-    chunk_matrices <- map(chunks, \(chunk) {
+    # weighted tokens -> sparse matrix per chunk (chunks in parallel)
+    chunk_matrices <- parallel::mclapply(chunks, \(chunk) {
         values <- tokenize(chunk) |> weight_tokens(recipe$vocab, config$weighting)
         return(tokens_to_sparse_matrix(values, chunk$id, recipe$vocab))
-    })
+    }, mc.cores = n_cores)
+    stopifnot(!map_lgl(chunk_matrices, \(matrix) inherits(matrix, "try-error"))) # a chunk failed
     x <- do.call(rbind, unname(chunk_matrices))
 
     # extra features from raw tweets

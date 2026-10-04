@@ -169,6 +169,7 @@ ngram_options <- baseline |>
     bind_rows(
         tribble(
             ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "ngrams_1", 1, 0, 0, chosen_weighting, 0, "none", chosen_extras,
             "ngrams_2", 2, 0, 0, chosen_weighting, 0, "none", chosen_extras,
             "ngrams_3", 3, 0, 0, chosen_weighting, 0, "none", chosen_extras,
             "ngrams_5", 5, 0, 0, chosen_weighting, 0, "none", chosen_extras,
@@ -241,6 +242,7 @@ shingle_options <- baseline |>
     bind_rows(
         tribble(
             ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "shingles_0", chosen_ngram_max, 0, 0, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
             "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
             "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
             "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
@@ -257,12 +259,12 @@ shingle_options <- baseline |>
 if (run_studies) study_shingle_results <- study_options(shingle_options, "shingles")
 ```
 
-The shingles from 2 to 5 characters is the best option, and while it's the most expensive in terms of features and computation time,
-the difference is not as extreme, so we will stick with it.
+The shingles from 2 to 5 characters is the best option, but the difference with less festure is not that extreme,
+so we choose the shingle range from 3 to 4 characters to keep the number of features lower.
 
 ```{r}
-chosen_shingle_min <- 2
-chosen_shingle_max <- 5
+chosen_shingle_min <- 3
+chosen_shingle_max <- 4
 ```
 
 ### Final set of features
@@ -290,9 +292,19 @@ feature_sets <- feature_options$key |>
     set_names() |>
     map(\(feature_key) {
         config <- config_from_options(feature_options, feature_key)
-        train <- prepare_features(data_split$train, config)
-        val <- prepare_features(data_split$val, recipe = train$recipe)
-        test <- prepare_features(test_data, recipe = train$recipe)
+        # chunks of tweets in parallel (see setup.R)
+        train <- prepare_features(
+            data_split$train, config,
+            chunk_size = chunk_size, n_cores = n_cores
+        )
+        val <- prepare_features(
+            data_split$val,
+            recipe = train$recipe, chunk_size = chunk_size, n_cores = n_cores
+        )
+        test <- prepare_features(
+            test_data,
+            recipe = train$recipe, chunk_size = chunk_size, n_cores = n_cores
+        )
 
         feature_set <- list(
             train = train[c("x", "y")],
