@@ -77,13 +77,7 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
     x <- do.call(rbind, unname(chunk_matrices))
 
     # extra features from raw tweets
-    if (config$extras) {
-        x <- x |>
-            add_columns(length_features(data)) |>
-            add_columns(lexicon_features(data)) |>
-            add_columns(question_features(data)) |>
-            add_columns(offensive_features(data))
-    }
+    if (config$extras) x <- x |> add_columns(extra_features(data))
 
     return(list(x = x, y = y, recipe = recipe))
 }
@@ -157,63 +151,33 @@ add_columns <- function(x, extra) {
     return(cbind(x, Matrix::Matrix(extra_matrix, sparse = TRUE)))
 }
 
-#' Split tweets into words, one row per word
-tweet_words <- function(data) {
-    words <- data |>
-        select(id, tweet) |>
-        unnest_tokens(word, tweet)
-
-    return(words)
-}
-
-#' Compute features related to tweet length
+#' Compute the extra per-tweet features from the words of each tweet
 #' @param long_word Minimum number of letters of a long word (default 7)
-length_features <- function(data, long_word = 7) {
-    lengths <- tweet_words(data) |>
-        group_by(id) |>
-        summarise(
-            log_n_words = log1p(n()),
-            mean_word_length = mean(nchar(word)),
-            long_word_share = mean(nchar(word) >= long_word),
-            unique_word_share = n_distinct(word) / n()
-        )
-
-    return(lengths)
-}
-
-#' Compute features from a sentiment lexicon
-lexicon_features <- function(data) {
+extra_features <- function(data, long_word = 7) {
     bing <- get_sentiments("bing")
     negative_words <- bing$word[bing$sentiment == "negative"]
     positive_words <- bing$word[bing$sentiment == "positive"]
 
-    sentiment_counts <- tweet_words(data) |>
+    extras <- data |>
+        select(id, tweet) |>
+        unnest_tokens(word, tweet) |>
         group_by(id) |>
         summarise(
+            # length
+            log_n_words = log1p(n()),
+            mean_word_length = mean(nchar(word)),
+            long_word_share = mean(nchar(word) >= long_word),
+            unique_word_share = n_distinct(word) / n(),
+            # sentiment lexicon
             lex_negative = sum(word %in% negative_words),
             lex_positive = sum(word %in% positive_words),
             lex_negative_share = lex_negative / n(),
             lex_positive_share = lex_positive / n(),
-            lex_more_negative = as.numeric(lex_negative > lex_positive)
+            lex_more_negative = as.numeric(lex_negative > lex_positive),
+            # question and offensive words
+            question_word_share = mean(word %in% question_words),
+            n_offensive_words = sum(word %in% offensive_words)
         )
 
-    return(sentiment_counts)
-}
-
-#' Compute the share of question words
-question_features <- function(data) {
-    questions <- tweet_words(data) |>
-        group_by(id) |>
-        summarise(question_word_share = mean(word %in% question_words))
-
-    return(questions)
-}
-
-#' Compute the number of offensive words
-offensive_features <- function(data) {
-    offensive <- tweet_words(data) |>
-        group_by(id) |>
-        summarise(n_offensive_words = sum(word %in% offensive_words))
-
-    return(offensive)
+    return(extras)
 }

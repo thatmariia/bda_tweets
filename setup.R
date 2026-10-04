@@ -1,6 +1,5 @@
 library(tidyverse)
 library(tidytext)
-library(caret, warn.conflicts = FALSE)
 library(Matrix)
 library(glmnet)
 

@@ -2,13 +2,13 @@
 # == FUNCTIONS FOR DATA PREPROCESSING
 # ==========================================================
 
-#' Tokenize text one way and count the tokens per tweet
-tokenize_data <- function(data, text_col, id_col, token_type = "words", ...) {
-    data <- data |>
-        unnest_tokens(output = token, {{ text_col }}, token = token_type, ...) |>
+#' Tokenize tweets one way and count the tokens per tweet
+tokenize_data <- function(data, token_type = "words", ...) {
+    tokens <- data |>
+        unnest_tokens(output = token, tweet, token = token_type, ...) |>
         filter(!is.na(token)) |>
-        count({{ id_col }}, token)
-    return(data)
+        count(id, token)
+    return(tokens)
 }
 
 #' Tokenize tweets into word n-grams and character n-grams
@@ -28,10 +28,7 @@ tokenize_tweets <- function(
 
     ngrams_tokens <- map(1:ngram_max, \(size) {
         tokens <- data |>
-            tokenize_data(
-                tweet, id,
-                token_type = "ngrams", n = size
-            ) |>
+            tokenize_data(token_type = "ngrams", n = size) |>
             mutate(token = if (size == 1) token else paste0(size, "gram_", token))
         if (size == 1) tokens <- tokens |> filter(!token %in% removed_words)
         return(tokens)
@@ -41,7 +38,6 @@ tokenize_tweets <- function(
     char_tokens <- map(shingle_sizes, \(size) {
         tokens <- data |>
             tokenize_data(
-                tweet, id,
                 token_type = "character_shingles", n = size, strip_non_alphanum = FALSE
             ) |>
             mutate(token = paste0(size, "shingle_", token))

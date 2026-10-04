@@ -54,20 +54,20 @@ there is one column per token, and `weighting` decides which value goes in it.
 | `"tf_idf"` | $TFIDF_{d,t}=TF_{d,t}\,IDF_t$, with inverse document frequency $IDF_t=-\log\left(\frac{DF_t}{N}\right)$ | The product of TF and IDF. IDF is the inverse of the relative frequency with which a term occurs among the $N$ documents, expressed on a log scale (a measure of 'surprise'); it is learned on the training tweets only. Sources: competition; [Spärck Jones (1972)](https://doi.org/10.1108/eb026526). |
 
 **Extra columns** (`R/features.R`; option `extras`):
-each function below splits the tweets (variable with character elements) into words,
+`extra_features()` splits the tweets (variable with character elements) into words,
 and adds one column per feature, with one value per tweet.
 
 | function | column | value per tweet | description and justification |
 |---|---|---|---|
-| `length_features()` | `log_n_words` | number of words (on a log scale) | Calculates the number of words per tweet. It may be that there is a relation between number of words and offensive language. The log scale keeps the few very long tweets from dominating. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
+| `extra_features()` | `log_n_words` | number of words (on a log scale) | Calculates the number of words per tweet. It may be that there is a relation between number of words and offensive language. The log scale keeps the few very long tweets from dominating. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
 | | `mean_word_length` | mean length of words | Calculates the mean length of words per tweet. It may be that offensive tweets use, for example, shorter words. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
 | | `long_word_share` | proportion of long words (7 or more letters) in a tweet | Measures the proportion of long words (many characters) in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less complex words. |
 | | `unique_word_share` | proportion of unique words to all words | Measures the proportion of unique words to all words in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less unique words. |
-| `lexicon_features()` | `lex_negative`, `lex_positive` | sum of negative words and sum of positive words (Bing list) | Uses the Bing list from the tidytext package as reference to calculate per tweet how many positive or negative words have been used. It is plausible that offensive tweets use more negative words and fewer positive words. Counting all negative words together also pools rare negative words, which have too few examples to get a reliable coefficient of their own. Sources: [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101). |
+| | `lex_negative`, `lex_positive` | sum of negative words and sum of positive words (Bing list) | Uses the Bing list from the tidytext package as reference to calculate per tweet how many positive or negative words have been used. It is plausible that offensive tweets use more negative words and fewer positive words. Counting all negative words together also pools rare negative words, which have too few examples to get a reliable coefficient of their own. Sources: [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101). |
 | | `lex_negative_share`, `lex_positive_share` | proportion of negative words and proportion of positive words | The same sums relative to the length of the tweet, so a long tweet with a few negative words differs from a short tweet that is mostly negative words. |
 | | `lex_more_negative` | either 0 ("positive") or 1 ("negative") | Measures if the tweet is rather positive or negative given the sums of positive and negative words. |
-| `question_features()` | `question_word_share` | proportion of question words (who, what, where, when, why, how, which, whose, whom) | Calculates the proportion of used question words in a tweet given a benchmark list with question words. It could be that there is a relation between used question words and offensive language. |
-| `offensive_features()` | `n_offensive_words` | sum of offensive benchmark words (`R/offensive_words.R`) | Uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
+| | `question_word_share` | proportion of question words (who, what, where, when, why, how, which, whose, whom) | Calculates the proportion of used question words in a tweet given a benchmark list with question words. It could be that there is a relation between used question words and offensive language. |
+| | `n_offensive_words` | sum of offensive benchmark words (`R/offensive_words.R`) | Uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
 
 ## Options for feature sets
 
@@ -84,22 +84,14 @@ The studies compare feature sets, which would be too expensive to run on all twe
 So we run them on a random sample of the training and validation tweets (12K and 3K).
 
 ```{r}
-if (run_studies) {
-    study_split <- list(
-        train = slice_sample(data_split$train, n = 12000),
-        val = slice_sample(data_split$val, n = 3000)
-    )
-    cat(
-        "Study sample:", nrow(study_split$train), "training and",
-        nrow(study_split$val), "validation tweets\n"
-    )
-} else {
-    # use empty placeholders
-    study_split <- list(
-        train = data_split$train[0, ],
-        val = data_split$val[0, ]
-    )
-}
+study_split <- list(
+    train = slice_sample(data_split$train, n = 12000),
+    val = slice_sample(data_split$val, n = 3000)
+)
+cat(
+    "Study sample:", nrow(study_split$train), "training and",
+    nrow(study_split$val), "validation tweets\n"
+)
 ```
 
 ### Baseline feature set
@@ -118,6 +110,10 @@ study_options <- function(options, title) {
     feature_results <- evaluate_feature_options(options, study_split)
     cat("Results for", title, "options:\n")
     print(feature_results |> select(key, n_features, val_auc, seconds))
+    print(plot_feature_results(
+        feature_results, baseline_key = baseline_key,
+        title = paste0("Validation AUC for ", title, " option")
+    ))
     return(feature_results)
 }
 ```
@@ -133,13 +129,10 @@ extras_options <- baseline |>
         )
     )
 
-if (run_studies) {
-    study_extras_results <- study_options(extras_options, "extras")
-    plot_feature_results(study_extras_results, baseline = baseline_key)
-}
+if (run_studies) study_extras_results <- study_options(extras_options, "extras")
 ```
 
-TODO: conclusion after running the study.
+The study shows that including extra features improves the model's performance.
 
 ```{r}
 chosen_extras <- TRUE
@@ -160,10 +153,7 @@ weighting_options <- baseline |>
         )
     )
 
-if (run_studies) {
-    study_weighting_results <- study_options(weighting_options, "weighting")
-    plot_feature_results(study_weighting_results, baseline = baseline_key)
-}
+if (run_studies) study_weighting_results <- study_options(weighting_options, "weighting")
 ```
 
 On the slice of training data, "binary" weighting is the best option, and it's also the simplest.
@@ -186,10 +176,7 @@ ngram_options <- baseline |>
         )
     )
 
-if (run_studies) {
-    study_ngram_results <- study_options(ngram_options, "ngram_max")
-    plot_feature_results(study_ngram_results, baseline = baseline_key)
-}
+if (run_studies) study_ngram_results <- study_options(ngram_options, "ngram_max")
 ```
 
 10 ngrams is clearly the best option, but it is also the most expensive in terms of features and computation time.
@@ -213,10 +200,7 @@ stopwords_options <- baseline |>
         )
     )
 
-if (run_studies) {
-    study_stopwords_results <- study_options(stopwords_options, "stopwords")
-    plot_feature_results(study_stopwords_results, baseline = baseline_key)
-}
+if (run_studies) study_stopwords_results <- study_options(stopwords_options, "stopwords")
 ```
 
 TODO: conclusion after running the study.
@@ -240,10 +224,7 @@ surprise_options <- baseline |>
         )
     )
 
-if (run_studies) {
-    study_surprise_results <- study_options(surprise_options, "surprise_pct")
-    plot_feature_results(study_surprise_results, baseline = baseline_key)
-}
+if (run_studies) study_surprise_results <- study_options(surprise_options, "surprise_pct")
 ```
 
 The surprise percentage of 0.05 is the best option, although all perform quite similarly until we get to 0.5.
@@ -273,10 +254,7 @@ shingle_options <- baseline |>
         )
     )
 
-if (run_studies) {
-    study_shingle_results <- study_options(shingle_options, "shingle_min and shingle_max")
-    plot_feature_results(study_shingle_results, baseline = baseline_key)
-}
+if (run_studies) study_shingle_results <- study_options(shingle_options, "shingles")
 ```
 
 The shingles from 2 to 5 characters is the best option, and while it's the most expensive in terms of features and computation time,
@@ -316,7 +294,6 @@ feature_sets <- feature_options$key |>
         test <- prepare_features(test_data, recipe = train$recipe)
 
         feature_set <- list(
-            config = config,
             train = train[c("x", "y")],
             val = val[c("x", "y")],
             test = test["x"]
