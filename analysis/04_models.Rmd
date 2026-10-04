@@ -38,7 +38,7 @@ TODO: other methods
 |---|---|
 | `key` | Name of the model |
 | `feature_set` | Key of a feature set from the features notebook |
-| `method` | Name of a method in `model_methods` |
+| `method` | `lasso`, `ridge` or `elastic_net` |
 
 ```{r}
 model_options <- tribble(

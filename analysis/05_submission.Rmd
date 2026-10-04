@@ -14,7 +14,7 @@ The test features were built in the features notebook, with the same feature set
 
 ```{r}
 x_test <- feature_sets[[best_fit$model$feature_set]]$test$x
-predictions <- predict_model(best_fit$model, x_test)
+predictions <- predict_glmnet(best_fit$model, x_test)
 str(predictions)
 ```
 

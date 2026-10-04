@@ -2,9 +2,12 @@
 # == FUNCTIONS FOR TRAINING MODELS
 # ==========================================================
 
-#' Fit a glmnet model, tuning lambda by cross-validation
-#' @param alpha 1 = lasso, 0 = ridge, in between = elastic net
-#' @return A list with the fitted model and its tuning results
+#' Alpha of each glmnet method: 1 = lasso, 0 = ridge, in between = elastic net
+glmnet_alphas <- c(lasso = 1, ridge = 0, elastic_net = 0.5)
+
+#' Fit a glmnet model
+#' @param alpha See glmnet_alphas
+#' @return A list with the fitted model, its alpha and chosen lambda, and its tuning results
 fit_glmnet <- function(x, y, foldid, alpha) {
     # the folds are fitted in parallel, on the backend registered in setup.R
     fit <- glmnet::cv.glmnet(
@@ -20,18 +23,17 @@ fit_glmnet <- function(x, y, foldid, alpha) {
         cv_se = fit$cvsd
     )
 
-    return(list(fit = fit, lambda = fit$lambda.min, tuning = tuning))
+    return(list(fit = fit, alpha = alpha, lambda = fit$lambda.min, tuning = tuning))
 }
 
-#' Refit a glmnet model on new data with the lambda chosen by its cross-validation
+#' Refit a glmnet model on new data with the alpha and lambda chosen before
 #' @param model A model from fit_glmnet()
 #' @return A list like the one from fit_glmnet()
-refit_glmnet <- function(x, y, model, alpha) {
-    # glmnet works best on a sequence of lambdas, so the path is fitted down to the chosen one
+refit_glmnet <- function(x, y, model) {
     lambdas <- model$fit$lambda[model$fit$lambda >= model$lambda]
-    fit <- glmnet::glmnet(x, y, family = "binomial", alpha = alpha, lambda = lambdas)
+    fit <- glmnet::glmnet(x, y, family = "binomial", alpha = model$alpha, lambda = lambdas)
 
-    return(list(fit = fit, lambda = model$lambda, tuning = model$tuning))
+    return(list(fit = fit, alpha = model$alpha, lambda = model$lambda, tuning = model$tuning))
 }
 
 #' Predict probabilities with a glmnet model
@@ -41,40 +43,16 @@ predict_glmnet <- function(model, x) {
 }
 
 
-#' Fit, refit, and predict functions of each method
-model_methods <- list(
-    lasso = list(
-        fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 1),
-        refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 1),
-        predict = predict_glmnet
-    ),
-    ridge = list(
-        fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 0),
-        refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 0),
-        predict = predict_glmnet
-    ),
-    elastic_net = list(
-        fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 0.5),
-        refit = \(x, y, model) refit_glmnet(x, y, model, alpha = 0.5),
-        predict = predict_glmnet
-    )
-)
-
-#' Predict with a model from any method
-predict_model <- function(model, x) {
-    return(model_methods[[model$method]]$predict(model, x))
-}
-
 #' Fit one model on a feature set and score it on the validation tweets
 fit_option <- function(feature_set, method, feature_sets, foldid) {
     start <- Sys.time()
     data <- feature_sets[[feature_set]]
 
-    model <- model_methods[[method]]$fit(data$train$x, data$train$y, foldid)
+    model <- fit_glmnet(data$train$x, data$train$y, foldid, glmnet_alphas[[method]])
     model$method <- method
     model$feature_set <- feature_set
 
-    model$val_pred <- predict_model(model, data$val$x)
+    model$val_pred <- predict_glmnet(model, data$val$x)
     model$val_auc <- glmnet::assess.glmnet(
         model$val_pred,
         newy = data$val$y, family = "binomial"
@@ -90,7 +68,7 @@ fit_option <- function(feature_set, method, feature_sets, foldid) {
 #' @return A list with the fitted models and a table of their results
 fit_all <- function(options, feature_sets) {
     stopifnot(all(options$feature_set %in% names(feature_sets)))
-    stopifnot(all(options$method %in% names(model_methods)))
+    stopifnot(all(options$method %in% names(glmnet_alphas)))
 
     # same 3 folds for every model
     n_train <- length(feature_sets[[1]]$train$y)
@@ -128,7 +106,7 @@ refit_best <- function(best_key, options, feature_sets, models) {
     x <- rbind(features$train$x, features$val$x)
     y <- c(features$train$y, features$val$y)
 
-    model <- model_methods[[option$method]]$refit(x, y, models[[best_key]])
+    model <- refit_glmnet(x, y, models[[best_key]])
     model$method <- option$method
     model$feature_set <- option$feature_set
 
