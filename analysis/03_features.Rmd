@@ -39,6 +39,7 @@ These options decide which tokens there are.
 |---|---|---|---|
 | `ngram_max` | word n-grams of 1 to `ngram_max` words | `idiot`, `2gram_not good` | Single words, pairs of words (bigrams), etc. Word n-grams keep phrases together (negations, expanded contractions, emoji descriptions). Sources: [Silge & Robinson (2017)](https://www.tidytextmining.com/ngrams.html), ch. 4; [Davidson et al. (2017)](https://doi.org/10.1609/icwsm.v11i1.14955). |
 | `shingle_min`, `shingle_max` | character n-grams of `shingle_min` to `shingle_max` letters (none if `shingle_max = 0`) | `4shingle_idio` | Character n-grams link related word forms ("idiot", "idiots") and misspellings. Sources: [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013); [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
+| `stopwords` | single words without the words of a stop word list: `"none"`, `"snowball"` (174 words) or `"smart"` (571 words) | | A common step in text analytics is to remove unimportant words (stopwords). This may have a positive or a negative effect on the prediction accuracy, therefore we try both. The lists also contain words like "not", "no" and "you", which may well be informative for offensive language. Only single words are removed; word n-grams such as "not good" keep them. Source: the `stop_words` lists of tidytext, [Silge & Robinson (2017)](https://www.tidytextmining.com/tidytext.html), ch. 1. |
 | `surprise_pct` | only the tokens occurring in at least `surprise_pct`% of the training tweets | | Rare tokens ($IDF_t > -\log(\text{surprise\_pct}/100)$, see below) are dropped. Learned on the training tweets only. |
 
 **Token values** (`weight_tokens()` in `R/features.R`; option `weighting`):
@@ -106,8 +107,8 @@ if (run_studies) {
 ```{r}
 baseline_key <- "baseline_full_dtm_counts"
 baseline <- tribble(
-    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-    baseline_key, 1, 0, 0, "tf", 0, FALSE
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+    baseline_key, 1, 0, 0, "tf", 0, "none", FALSE
 )
 
 study_options <- function(options, title) {
@@ -127,8 +128,8 @@ study_options <- function(options, title) {
 extras_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-            "baseline_with_extras", 1, 0, 0, "tf", 0, TRUE
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "baseline_with_extras", 1, 0, 0, "tf", 0, "none", TRUE
         )
     )
 
@@ -150,12 +151,12 @@ chosen_extras <- TRUE
 weighting_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-            "binary", 1, 0, 0, "binary", 0, chosen_extras,
-            "count", 1, 0, 0, "count", 0, chosen_extras,
-            "log_count", 1, 0, 0, "log_count", 0, chosen_extras,
-            "tf", 1, 0, 0, "tf", 0, chosen_extras,
-            "tf_idf", 1, 0, 0, "tf_idf", 0, chosen_extras
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "binary", 1, 0, 0, "binary", 0, "none", chosen_extras,
+            "count", 1, 0, 0, "count", 0, "none", chosen_extras,
+            "log_count", 1, 0, 0, "log_count", 0, "none", chosen_extras,
+            "tf", 1, 0, 0, "tf", 0, "none", chosen_extras,
+            "tf_idf", 1, 0, 0, "tf_idf", 0, "none", chosen_extras
         )
     )
 
@@ -177,11 +178,11 @@ chosen_weighting <- "binary"
 ngram_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-            "ngrams_2", 2, 0, 0, chosen_weighting, 0, chosen_extras,
-            "ngrams_3", 3, 0, 0, chosen_weighting, 0, chosen_extras,
-            "ngrams_5", 5, 0, 0, chosen_weighting, 0, chosen_extras,
-            "ngrams_10", 10, 0, 0, chosen_weighting, 0, chosen_extras
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "ngrams_2", 2, 0, 0, chosen_weighting, 0, "none", chosen_extras,
+            "ngrams_3", 3, 0, 0, chosen_weighting, 0, "none", chosen_extras,
+            "ngrams_5", 5, 0, 0, chosen_weighting, 0, "none", chosen_extras,
+            "ngrams_10", 10, 0, 0, chosen_weighting, 0, "none", chosen_extras
         )
     )
 
@@ -199,18 +200,43 @@ So, for the sake of speed, we will choose 2 ngrams as the best option for now.
 chosen_ngram_max <- 2
 ```
 
+### Study `stopwords`
+
+```{r}
+stopwords_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "stopwords_none", chosen_ngram_max, 0, 0, chosen_weighting, 0, "none", chosen_extras, # nolint: line_length_linter.
+            "stopwords_snowball", chosen_ngram_max, 0, 0, chosen_weighting, 0, "snowball", chosen_extras, # nolint: line_length_linter.
+            "stopwords_smart", chosen_ngram_max, 0, 0, chosen_weighting, 0, "smart", chosen_extras # nolint: line_length_linter.
+        )
+    )
+
+if (run_studies) {
+    study_stopwords_results <- study_options(stopwords_options, "stopwords")
+    plot_feature_results(study_stopwords_results, baseline = baseline_key)
+}
+```
+
+TODO: conclusion after running the study.
+
+```{r}
+chosen_stopwords <- "none"
+```
+
 ### Study `surprise_pct`
 
 ```{r}
 surprise_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_extras,
-            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, chosen_extras,
-            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, chosen_extras,
-            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, chosen_extras,
-            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, chosen_extras
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, chosen_stopwords, chosen_extras # nolint: line_length_linter.
         )
     )
 
@@ -233,17 +259,17 @@ chosen_surprise_pct <- 0.05
 shingle_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
-            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, chosen_extras # nolint: line_length_linter.
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras # nolint: line_length_linter.
         )
     )
 
@@ -267,8 +293,8 @@ The extra columns are always included.
 
 ```{r}
 feature_options <- tribble(
-    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
-    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
+    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
 )
 feature_options
 ```

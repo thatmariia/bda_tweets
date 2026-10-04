@@ -8,6 +8,7 @@ feature_config <- function(
     ngram_max = 1, shingle_min = 0, shingle_max = 0,
     weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
     surprise_pct = 0,
+    stopwords = c("none", "snowball", "smart"),
     extras = FALSE
 ) {
     config <- list(
@@ -16,6 +17,7 @@ feature_config <- function(
         shingle_max = shingle_max,
         weighting = match.arg(weighting),
         surprise_pct = surprise_pct,
+        stopwords = match.arg(stopwords),
         extras = extras
     )
 
@@ -45,7 +47,9 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
 
     chunks <- split(data, ceiling(seq_len(nrow(data)) / chunk_size))
     tokenize <- \(chunk) {
-        tokens <- tokenize_tweets(chunk, config$ngram_max, config$shingle_min, config$shingle_max)
+        tokens <- tokenize_tweets(
+            chunk, config$ngram_max, config$shingle_min, config$shingle_max, config$stopwords
+        )
         return(tokens)
     }
 
