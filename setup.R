@@ -1,6 +1,5 @@
 library(tidyverse)
 library(tidytext)
-library(caret, warn.conflicts = FALSE)
 library(Matrix)
 library(glmnet)
 
@@ -19,6 +18,10 @@ n_cores <- if (.Platform$OS.type == "windows") {
 } else {
     max(1, parallel::detectCores() - 1)
 }
+if (n_cores > 1) doMC::registerDoMC(cores = n_cores) else foreach::registerDoSEQ()
+
+# tweets per chunk when building features; smaller locally, so many cores fit in memory
+chunk_size <- if (on_kaggle) 20000 else 5000
 
 data_dir <- if (on_kaggle) {
     list.files("/kaggle/input/competitions", full.names = TRUE)[1]

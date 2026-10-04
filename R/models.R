@@ -2,13 +2,18 @@
 # == FUNCTIONS FOR TRAINING MODELS
 # ==========================================================
 
-#' Fit a glmnet model, tuning lambda by cross-validation
-#' @param alpha 1 = lasso, 0 = ridge, in between = elastic net
-#' @return A list with the fitted model and its tuning results
+#' Alpha of each glmnet method: 1 = lasso, 0 = ridge, in between = elastic net
+glmnet_alphas <- c(lasso = 1, ridge = 0, elastic_net = 0.5)
+
+#' Fit a glmnet model
+#' @param alpha See glmnet_alphas
+#' @return A list with the fitted model, its alpha and chosen lambda, and its tuning results
 fit_glmnet <- function(x, y, foldid, alpha) {
+    # the folds are fitted in parallel, on the backend registered in setup.R
     fit <- glmnet::cv.glmnet(
         x, y,
-        family = "binomial", alpha = alpha, foldid = foldid, type.measure = "auc"
+        family = "binomial", alpha = alpha, foldid = foldid, type.measure = "auc",
+        parallel = TRUE
     )
 
     tuning <- tibble(
@@ -18,55 +23,36 @@ fit_glmnet <- function(x, y, foldid, alpha) {
         cv_se = fit$cvsd
     )
 
-    return(list(fit = fit, tuning = tuning))
+    return(list(fit = fit, alpha = alpha, lambda = fit$lambda.min, tuning = tuning))
+}
+
+#' Refit a glmnet model on new data with the alpha and lambda chosen before
+#' @param model A model from fit_glmnet()
+#' @return A list like the one from fit_glmnet()
+refit_glmnet <- function(x, y, model) {
+    lambdas <- model$fit$lambda[model$fit$lambda >= model$lambda]
+    fit <- glmnet::glmnet(x, y, family = "binomial", alpha = model$alpha, lambda = lambdas)
+
+    return(list(fit = fit, alpha = model$alpha, lambda = model$lambda, tuning = model$tuning))
 }
 
 #' Predict probabilities with a glmnet model
 predict_glmnet <- function(model, x) {
-    pred <- predict(model$fit, x, s = "lambda.min", type = "response") |> drop()
+    pred <- predict(model$fit, x, s = model$lambda, type = "response") |> drop()
     return(pred)
 }
 
-
-#' Fit and predict functions of each method
-model_methods <- list(
-    lasso = list(
-        fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 1),
-        predict = predict_glmnet
-    ),
-    ridge = list(
-        fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 0),
-        predict = predict_glmnet
-    ),
-    elastic_net = list(
-        fit = \(x, y, foldid) fit_glmnet(x, y, foldid, alpha = 0.5),
-        predict = predict_glmnet
-    )
-    # svm_linear = list(
-    #     fit = \(x, y, foldid) fit_svm(x, y, foldid, kernel = "linear"),
-    #     predict = predict_svm
-    # ),
-    # svm_radial = list(
-    #     fit = \(x, y, foldid) fit_svm(x, y, foldid, kernel = "radial"),
-    #     predict = predict_svm
-    # )
-)
-
-#' Predict with a model from any method
-predict_model <- function(model, x) {
-    return(model_methods[[model$method]]$predict(model, x))
-}
 
 #' Fit one model on a feature set and score it on the validation tweets
 fit_option <- function(feature_set, method, feature_sets, foldid) {
     start <- Sys.time()
     data <- feature_sets[[feature_set]]
 
-    model <- model_methods[[method]]$fit(data$train$x, data$train$y, foldid)
+    model <- fit_glmnet(data$train$x, data$train$y, foldid, glmnet_alphas[[method]])
     model$method <- method
     model$feature_set <- feature_set
 
-    model$val_pred <- predict_model(model, data$val$x)
+    model$val_pred <- predict_glmnet(model, data$val$x)
     model$val_auc <- glmnet::assess.glmnet(
         model$val_pred,
         newy = data$val$y, family = "binomial"
@@ -82,18 +68,19 @@ fit_option <- function(feature_set, method, feature_sets, foldid) {
 #' @return A list with the fitted models and a table of their results
 fit_all <- function(options, feature_sets) {
     stopifnot(all(options$feature_set %in% names(feature_sets)))
-    stopifnot(all(options$method %in% names(model_methods)))
+    stopifnot(all(options$method %in% names(glmnet_alphas)))
 
     # same 3 folds for every model
     n_train <- length(feature_sets[[1]]$train$y)
     foldid <- sample(rep_len(1:3, n_train))
 
-    # fir models
-    fits <- map_parallel(
-        transpose(select(options, feature_set, method)),
-        \(option) fit_option(option$feature_set, option$method, feature_sets, foldid),
-        n_cores = n_cores
-    )
+    fits <- map(transpose(select(options, feature_set, method)), \(option) {
+        fit <- try(
+            fit_option(option$feature_set, option$method, feature_sets, foldid),
+            silent = TRUE
+        )
+        return(fit)
+    })
 
     # report any failed fits, keep the others
     failed <- map_lgl(fits, \(fit) inherits(fit, "try-error"))
@@ -112,19 +99,31 @@ fit_all <- function(options, feature_sets) {
 }
 
 #' Refit a model on all labelled tweets (training + validation)
-refit_best <- function(best_key, options, feature_sets, data_split) {
+refit_best <- function(best_key, options, feature_sets, models) {
     option <- options |> filter(key == best_key)
-    config <- feature_sets[[option$feature_set]]$config
+    features <- feature_sets[[option$feature_set]]
 
-    all_data <- bind_rows(data_split$train, data_split$val)
-    all <- prepare_features(all_data, config)
-    foldid <- sample(rep_len(1:3, length(all$y)))
+    x <- rbind(features$train$x, features$val$x)
+    y <- c(features$train$y, features$val$y)
 
-    model <- model_methods[[option$method]]$fit(all$x, all$y, foldid)
+    model <- refit_glmnet(x, y, models[[best_key]])
     model$method <- option$method
     model$feature_set <- option$feature_set
 
-    return(list(key = best_key, recipe = all$recipe, model = model))
+    return(list(key = best_key, model = model))
+}
+
+#' Bar chart of the validation AUC of every model
+plot_model_auc <- function(results) {
+    plot <- results |>
+        mutate(key = fct_inorder(key)) |>
+        ggplot(aes(x = key, y = val_auc)) +
+        geom_col() +
+        ylim(0, 1) +
+        labs(title = "Validation AUC per model", x = NULL, y = "Validation AUC") +
+        theme_minimal()
+
+    return(plot)
 }
 
 #' Plot how every model was tuned: cross-validated AUC per value of its tuning parameter
@@ -166,6 +165,53 @@ plot_roc <- function(models, feature_sets) {
             x = "False positive rate", y = "True positive rate", colour = NULL
         ) +
         theme_bw()
+
+    return(plot)
+}
+
+#' Standardized coefficients of a glmnet model
+#' @param x The training matrix the model was fitted on (for the standard deviations)
+glmnet_importance <- function(model, x) {
+    coefs <- coef(model$fit, s = model$lambda)[-1, 1] # without the intercept
+    column_sd <- sqrt(pmax(Matrix::colMeans(x^2) - Matrix::colMeans(x)^2, 0))
+
+    importance <- tibble(
+        column = names(coefs),
+        coefficient = coefs,
+        standardized = coefs * column_sd[names(coefs)]
+    ) |>
+        filter(standardized != 0)
+
+    return(importance)
+}
+
+#' Plot the features that influence the prediction towards offensive or not offensive
+plot_important_words <- function(model, x, most_n = 15, least_n = 15) {
+    importance <- glmnet_importance(model, x)
+
+    top <- bind_rows(
+        importance |> slice_max(standardized, n = most_n),
+        importance |> slice_min(standardized, n = least_n)
+    ) |>
+        filter(standardized != 0) |>
+        mutate(
+            direction = if_else(standardized > 0, "towards offensive", "towards not offensive"),
+            label = fct_reorder(column, standardized)
+        )
+
+    plot <- ggplot(top, aes(x = standardized, y = label, fill = direction)) +
+        geom_col() +
+        geom_vline(xintercept = 0, colour = "grey") +
+        scale_fill_manual(values = c(
+            "towards offensive" = "#e34948",
+            "towards not offensive" = "#2a78d6"
+        )) +
+        labs(
+            title = "Feature impacts of the best model",
+            x = "Standardized coefficient", y = NULL, fill = NULL
+        ) +
+        theme_minimal() +
+        theme(legend.position = "top")
 
     return(plot)
 }

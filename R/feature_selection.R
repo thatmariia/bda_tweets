@@ -35,13 +35,15 @@ evaluate_feature_options <- function(options, data_split) {
     # same 3 folds for every feature set
     foldid <- sample(rep_len(1:3, nrow(data_split$train)))
 
-    scores <- map_parallel(
+    # evaluate on several cores; the next feature set starts as soon as a core is free
+    scores <- parallel::mclapply(
         configs,
-        \(config) evaluate_features(config, data_split, foldid),
-        n_cores = n_cores
+        \(config) try(evaluate_features(config, data_split, foldid), silent = TRUE),
+        mc.cores = n_cores,
+        mc.preschedule = FALSE
     )
 
-    # failed jobs return their error instead of stopping, so stop here
+    # failed feature sets return their error instead of stopping
     failed <- map_lgl(scores, \(score) inherits(score, "try-error"))
     if (any(failed)) {
         stop("Feature set ", options$key[which(failed)[1]], " failed: ", scores[failed][[1]])
@@ -50,60 +52,6 @@ evaluate_feature_options <- function(options, data_split) {
     results <- options |>
         mutate(result = scores) |>
         unnest(result)
-
-    return(results)
-}
-
-#' Apply `fun` to each item on several cores, with a progress bar in interactive sessions
-#'
-#' A new item is started as soon as a core is free. Errors are returned as "try-error"
-#' objects instead of stopping, like parallel::mclapply().
-#'
-#' @param items A list
-#' @param fun A function of one item
-#' @param n_cores Number of items to run at the same time
-#' @return A list with the result of `fun` for each item, in the same order as `items`
-map_parallel <- function(items, fun, n_cores) {
-    show_progress <- !on_kaggle
-    if (show_progress) progress <- txtProgressBar(max = length(items), style = 3)
-
-    results <- vector("list", length(items))
-
-    if (n_cores == 1) {
-        for (i in seq_along(items)) {
-            results[[i]] <- try(fun(items[[i]]), silent = TRUE)
-            if (show_progress) setTxtProgressBar(progress, i)
-        }
-        if (show_progress) close(progress)
-        return(results)
-    }
-
-    running <- list() # jobs that are still running
-    item_of_job <- c() # item index per job, named by the job's process id
-    n_started <- 0
-    n_done <- 0
-
-    while (n_done < length(items)) {
-        # start new jobs while there are free cores
-        while (length(running) < n_cores && n_started < length(items)) {
-            n_started <- n_started + 1
-            job <- parallel::mcparallel(fun(items[[n_started]]))
-            running <- c(running, list(job))
-            item_of_job[as.character(job$pid)] <- n_started
-        }
-
-        # collect the jobs that finished within the last second
-        finished <- parallel::mccollect(running, wait = FALSE, timeout = 1)
-        for (pid in names(finished)) {
-            results[item_of_job[pid]] <- finished[pid]
-            n_done <- n_done + 1
-        }
-        running <- running |> discard(\(job) as.character(job$pid) %in% names(finished))
-
-        if (show_progress) setTxtProgressBar(progress, n_done)
-    }
-
-    if (show_progress) close(progress)
 
     return(results)
 }
@@ -122,8 +70,9 @@ config_from_options <- function(options, chosen_key) {
 #' @param results Output of evaluate_feature_options()
 #' @param baseline_key Key of the feature set to compare against; skipped if it isn't in `results`
 #' @param title Title of the plot
-plot_feature_results <- function(results, baseline_key = "full_dtm_counts",
-                                 title = "Validation AUC per feature set") {
+plot_feature_results <- function(
+  results, baseline_key = "baseline_full_dtm_counts", title = "Validation AUC per feature set"
+) {
     baseline_auc <- results |>
         filter(key == baseline_key) |>
         pull(val_auc)

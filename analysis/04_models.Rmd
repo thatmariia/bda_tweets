@@ -1,30 +1,12 @@
 ```{r, include = FALSE}
 source(here::here("setup.R"))
 for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
-data_split <- readRDS(here::here(output_dir, "data_split.rds"))
 feature_sets <- readRDS(here::here(output_dir, "feature_sets.rds"))
 ```
 
 # Models
 
-Methods:
-
-1. Lasso and Ridge regression
-2. Principal Components and Partial Least Squares regression
-3. Smoothing
-4. Regression and Classification trees (CART)
-5. Random Forests
-6. Support Vector Machines
-
-Methods (1) and (2) are able to take many features while automatically reducing redundant flexibility to any desired level.
-Multicollinearity (highly correlated linear combinations of features) is also automatically taken care of by these methods.
-
-Number (3) on the list, smoothing, grants more flexibility by allowing for some non-linearity in the relations between features and the target variable,
-without the need to manually specify a specific mathematical form (as is necessary in polynomial regression).
-
-Methods (4), (5), and (6) are not only able to remove redundant features, but also can automatically recognize interactions between features.
-
-We currently fit:
+The used models:
 
 | Method | Package | Tune | Notes |
 |---|---|---|---|
@@ -32,7 +14,7 @@ We currently fit:
 | `ridge` | glmnet | `lambda` | `alpha = 0` |
 | `elastic_net` | glmnet | `lambda` | `alpha = 0.5` |
 
-TODO: SVM and others
+TODO: other methods
 
 ## Define options for training models
 
@@ -40,10 +22,7 @@ TODO: SVM and others
 |---|---|
 | `key` | Name of the model |
 | `feature_set` | Key of a feature set from the features notebook |
-| `method` | Name of a method in `model_methods` |
-
-glmnet standardizes the columns, which cancels the naive Bayes scaling,
-so the glmnet methods are only fitted on the `binary` feature set.
+| `method` | `lasso`, `ridge` or `elastic_net` |
 
 ```{r}
 model_options <- tribble(
@@ -53,6 +32,8 @@ model_options <- tribble(
     "binary", "elastic_net"
 ) |>
     mutate(key = paste(method, feature_set, sep = "_"))
+
+cat("Model options:\n")
 model_options
 ```
 
@@ -66,11 +47,19 @@ source(here::here("R", "models.R"))
 ```
 
 ```{r}
+cat("Fitting models...\n")
 fitted_models <- fit_all(model_options, feature_sets)
+cat("Results of fitted models:\n")
 fitted_models$results
 ```
 
 ## Evaluation
+
+The validation AUC of each model.
+
+```{r}
+plot_model_auc(fitted_models$results)
+```
 
 ```{r}
 plot_feature_results(
@@ -99,7 +88,17 @@ best_key <- fitted_models$results |>
     pull(key)
 cat("Best model:", best_key, "\n")
 
-best_fit <- refit_best(best_key, model_options, feature_sets, data_split)
+cat("Refitting the best model on all labelled tweets (training + validation)...\n")
+best_fit <- refit_best(best_key, model_options, feature_sets, fitted_models$models)
+```
+
+## Most important features
+
+We investigate which features influence the prediction of the best model towards most and least offensive.
+The coefficients are standardized (multiplied by the standard deviation of their column) to compensate for the different scales of the features.
+
+```{r}
+plot_important_words(best_fit$model, feature_sets[[best_fit$model$feature_set]]$train$x, 30, 15)
 ```
 
 ```{r, include = FALSE}
