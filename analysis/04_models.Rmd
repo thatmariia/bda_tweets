@@ -6,23 +6,7 @@ feature_sets <- readRDS(here::here(output_dir, "feature_sets.rds"))
 
 # Models
 
-Methods:
-
-1. Lasso and Ridge regression
-2. Principal Components and Partial Least Squares regression
-3. Smoothing
-4. Regression and Classification trees (CART)
-5. Random Forests
-
-Methods (1) and (2) are able to take many features while automatically reducing redundant flexibility to any desired level.
-Multicollinearity (highly correlated linear combinations of features) is also automatically taken care of by these methods.
-
-Number (3) on the list, smoothing, grants more flexibility by allowing for some non-linearity in the relations between features and the target variable,
-without the need to manually specify a specific mathematical form (as is necessary in polynomial regression).
-
-Methods (4) and (5) are not only able to remove redundant features, but also can automatically recognize interactions between features.
-
-We currently fit:
+The used models:
 
 | Method | Package | Tune | Notes |
 |---|---|---|---|
