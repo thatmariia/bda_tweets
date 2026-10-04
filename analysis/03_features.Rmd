@@ -29,36 +29,44 @@ source(here::here("R", "offensive_words.R"))
 - $N$: total number of documents
 - $DF_t$: number of documents containing token $t$
 
-**Token values** (one column per token; `weighting` in `feature_config()`):
+The features are built in the same steps as in the code: tokens, token values, and extra columns.
 
-| Feature | Equation / representation | Motivation / intuition | Source |
+**Tokens** (`tokenize_tweets()` in `R/tokens.R` and `fit_vocabulary()` in `R/features.R`):
+the tweets (variable with character elements) are split into tokens, and every token that is kept becomes a column.
+These options decide which tokens there are.
+
+| option | tokens | example columns | description and justification |
 |---|---|---|---|
-| **Document occurrence** | $\mathbf{1}(n_{d,t}>0)$ | 0–1 encoding of the presence or absence of a token in a document (here: tweet) | Competition |
-| **Token count** | $n_{d,t}$ | Simple counts of each token within documents (resulting in a document by term matrix, or DTM) | Competition |
-| **Log count** | $1+\log n_{d,t}$ | Repeats add less than the first occurrence | [Manning et al. (2008)](https://doi.org/10.1017/CBO9780511809071), §6.4.1 |
-| **Term frequency (TF)** | $TF_{d,t}=\frac{n_{d,t}}{\sum_{t} n_{d,t}}$ | The relative frequency of a term within a document | Competition |
-| **Inverse document frequency (IDF)** | $IDF_t=-\log\left(\frac{DF_t}{N}\right)$ | Inverse of the relative frequency with which a term occurs among the $N$ documents, on a log scale (a measure of 'surprise') | Competition |
-| **TF-IDF** | $TFIDF_{d,t}=TF_{d,t}\,IDF_t$ | The product of TF and IDF | Competition; [Spärck Jones (1972)](https://doi.org/10.1108/eb026526) |
-| **Vector space embeddings** (not used yet) | $\mathbf{z}_d\in\mathbb{R}^k$ | Advanced features like factor loadings (eigenvectors) from a PCA of the DTM, or "word2vec" representations, usually obtained by training neural networks on a very large corpus | Competition |
+| `ngram_max` | word n-grams of 1 to `ngram_max` words | `idiot`, `2gram_not good` | Single words, pairs of words (bigrams), etc. Word n-grams keep phrases together (negations, expanded contractions, emoji descriptions). Sources: [Silge & Robinson (2017)](https://www.tidytextmining.com/ngrams.html), ch. 4; [Davidson et al. (2017)](https://doi.org/10.1609/icwsm.v11i1.14955). |
+| `shingle_min`, `shingle_max` | character n-grams of `shingle_min` to `shingle_max` letters (none if `shingle_max = 0`) | `4shingle_idio` | Character n-grams link related word forms ("idiot", "idiots") and misspellings. Sources: [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013); [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
+| `surprise_pct` | only the tokens occurring in at least `surprise_pct`% of the training tweets | | Rare tokens ($IDF_t > -\log(\text{surprise\_pct}/100)$, see below) are dropped. Learned on the training tweets only. |
 
-**Which tokens** (`ngram_max`, `shingle_min`, `shingle_max`, `surprise_pct`):
+**Token values** (`weight_tokens()` in `R/features.R`; option `weighting`):
+there is one column per token, and `weighting` decides which value goes in it.
 
-| Feature | Motivation / intuition | Source |
+| `weighting` | value in each token column | description and justification |
 |---|---|---|
-| **Word n-grams** | Keep phrases together: negations, expanded contractions ("is not"), emoji descriptions | [Silge & Robinson (2017)](https://www.tidytextmining.com/ngrams.html), ch. 4; [Davidson et al. (2017)](https://doi.org/10.1609/icwsm.v11i1.14955) |
-| **Character n-grams** | Link word forms ("idiot", "idiots") and misspellings | [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013); [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062) |
-| **Surprise filter** | Drop tokens in fewer than `surprise_pct`% of tweets ($IDF_t \le -\log(\text{pct}/100)$) | Competition |
+| `"binary"` | document occurrence $\mathbf{1}(n_{d,t}>0)$ | 0–1 encoding of the presence or absence of a token in a document (here: tweet). |
+| `"count"` | token count $n_{d,t}$ | Simple counts of each token within documents (resulting in a document by term matrix, or DTM). |
+| `"log_count"` | log count $1+\log n_{d,t}$ | Repeats of a token add less than its first occurrence. Source: [Manning et al. (2008)](https://doi.org/10.1017/CBO9780511809071), §6.4.1. |
+| `"tf"` | term frequency $TF_{d,t}=\frac{n_{d,t}}{\sum_{t} n_{d,t}}$ | The relative frequency of a term within a document. |
+| `"tf_idf"` | $TFIDF_{d,t}=TF_{d,t}\,IDF_t$, with inverse document frequency $IDF_t=-\log\left(\frac{DF_t}{N}\right)$ | The product of TF and IDF. IDF is the inverse of the relative frequency with which a term occurs among the $N$ documents, expressed on a log scale (a measure of 'surprise'); it is learned on the training tweets only. Sources: competition; [Spärck Jones (1972)](https://doi.org/10.1108/eb026526). |
 
-**Extra columns** (`extras`):
+**Extra columns** (`R/features.R`; option `extras`):
+each function below splits the tweets (variable with character elements) into words,
+and adds one column per feature, with one value per tweet.
 
-| Feature | Motivation / intuition | Source |
-|---|---|---|
-| **Tweet length** | log number of words and mean word length; weak evidence, may reflect the source dataset | [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013) |
-| **Share of long words** | share of words with 7 or more letters; offensive tweets may use less complex words | |
-| **Share of unique words** | distinct words / all words; offensive tweets may use a less varied vocabulary | |
-| **Sentiment lexicon** | number and share of negative / positive words (Bing lexicon), and whether there are more negative than positive words; pools rare negative words | [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101) |
-| **Question words** | share of question words (who, what, where, ...) | |
-| **Offensive words** | number of words from a list of ~200 offensive words, generated with UvA AI Chat (`R/offensive_words.R`) | [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062) (counts of blacklist words) |
+| function | column | value per tweet | description and justification |
+|---|---|---|---|
+| `length_features()` | `log_n_words` | number of words (on a log scale) | Calculates the number of words per tweet. It may be that there is a relation between number of words and offensive language. The log scale keeps the few very long tweets from dominating. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
+| | `mean_word_length` | mean length of words | Calculates the mean length of words per tweet. It may be that offensive tweets use, for example, shorter words. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
+| | `long_word_share` | proportion of long words (7 or more letters) in a tweet | Measures the proportion of long words (many characters) in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less complex words. |
+| | `unique_word_share` | proportion of unique words to all words | Measures the proportion of unique words to all words in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less unique words. |
+| `lexicon_features()` | `lex_negative`, `lex_positive` | sum of negative words and sum of positive words (Bing list) | Uses the Bing list from the tidytext package as reference to calculate per tweet how many positive or negative words have been used. It is plausible that offensive tweets use more negative words and fewer positive words. Counting all negative words together also pools rare negative words, which have too few examples to get a reliable coefficient of their own. Sources: [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101). |
+| | `lex_negative_share`, `lex_positive_share` | proportion of negative words and proportion of positive words | The same sums relative to the length of the tweet, so a long tweet with a few negative words differs from a short tweet that is mostly negative words. |
+| | `lex_more_negative` | either 0 ("positive") or 1 ("negative") | Measures if the tweet is rather positive or negative given the sums of positive and negative words. |
+| `question_features()` | `question_word_share` | proportion of question words (who, what, where, when, why, how, which, whose, whom) | Calculates the proportion of used question words in a tweet given a benchmark list with question words. It could be that there is a relation between used question words and offensive language. |
+| `offensive_features()` | `n_offensive_words` | sum of offensive benchmark words (`R/offensive_words.R`) | Uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
 
 ## Options for feature sets
 
