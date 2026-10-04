@@ -77,6 +77,30 @@ Each option is a row in a table, with the columns corresponding to the parameter
 source(here::here("R", "feature_selection.R"))
 ```
 
+### Study sample
+
+The studies compare feature sets, which would be too expensive to run on all tweets.
+So we run them on a random sample of the training and validation tweets (12K and 3K).
+
+```{r}
+if (run_studies) {
+    study_split <- list(
+        train = slice_sample(data_split$train, n = 12000),
+        val = slice_sample(data_split$val, n = 3000)
+    )
+    cat(
+        "Study sample:", nrow(study_split$train), "training and",
+        nrow(study_split$val), "validation tweets\n"
+    )
+} else {
+    # use empty placeholders
+    study_split <- list(
+        train = data_split$train[0, ],
+        val = data_split$val[0, ]
+    )
+}
+```
+
 ### Baseline feature set
 
 ```{r}
@@ -90,7 +114,7 @@ study_options <- function(options, title) {
     # display options, evaluate, show and plot result
     cat("Studying", title, "options:\n")
     print(options)
-    feature_results <- evaluate_feature_options(options, data_split)
+    feature_results <- evaluate_feature_options(options, study_split)
     cat("Results for", title, "options:\n")
     print(feature_results |> select(key, n_features, val_auc, seconds))
     return(feature_results)
