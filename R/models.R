@@ -95,10 +95,17 @@ fit_all <- function(options, feature_sets) {
     foldid <- sample(rep_len(1:3, n_train))
 
     # fir models
-    fits <- map_parallel(
+    fits <- parallel::mclapply(
         transpose(select(options, feature_set, method)),
-        \(option) fit_option(option$feature_set, option$method, feature_sets, foldid),
-        n_cores = n_cores
+        \(option) {
+            fit <- try(
+                fit_option(option$feature_set, option$method, feature_sets, foldid),
+                silent = TRUE
+            )
+            return(fit)
+        },
+        mc.cores = n_cores,
+        mc.preschedule = FALSE # the next model starts as soon as a core is free
     )
 
     # report any failed fits, keep the others
