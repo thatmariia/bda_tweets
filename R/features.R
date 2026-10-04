@@ -3,11 +3,12 @@
 # ==========================================================
 
 #' Settings for one feature set
+#' @param extras Add the extra per-tweet columns (length, lexicon, question and offensive words)
 feature_config <- function(
     ngram_max = 1, shingle_min = 0, shingle_max = 0,
     weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
     surprise_pct = 0,
-    length = FALSE, lexicon = FALSE
+    extras = FALSE
 ) {
     config <- list(
         ngram_max = ngram_max,
@@ -15,8 +16,7 @@ feature_config <- function(
         shingle_max = shingle_max,
         weighting = match.arg(weighting),
         surprise_pct = surprise_pct,
-        length = length,
-        lexicon = lexicon
+        extras = extras
     )
 
     return(config)
@@ -73,19 +73,15 @@ prepare_features <- function(data, config = NULL, recipe = NULL, chunk_size = 20
     x <- do.call(rbind, unname(chunk_matrices))
 
     # extra features from raw tweets
-    if (config$length) x <- x |> add_columns(length_features(data))
-    if (config$lexicon) x <- x |> add_columns(lexicon_features(data))
+    if (config$extras) {
+        x <- x |>
+            add_columns(length_features(data)) |>
+            add_columns(lexicon_features(data)) |>
+            add_columns(question_features(data)) |>
+            add_columns(offensive_features(data))
+    }
 
     return(list(x = x, y = y, recipe = recipe))
-}
-
-#' Count the tweets that contain each token, in one chunk of training tweets
-#' @return A list with `tokens` (one row per token) and `n_docs` (tweets with any token)
-count_tokens <- function(tokens) {
-    token_counts <- tokens |>
-        count(token, name = "doc_count") # tokens has one row per tweet and token
-
-    return(list(tokens = token_counts, n_docs = n_distinct(tokens$id)))
 }
 
 #' Get the vocabulary and IDF from the token counts of the training tweets
@@ -96,6 +92,15 @@ fit_vocabulary <- function(token_counts, n_docs, surprise_pct = 0) {
         select(token, idf)
 
     return(kept_tokens)
+}
+
+#' Count the tweets that contain each token
+#' @return A list with `tokens` (one row per token) and `n_docs` (tweets with any token)
+count_tokens <- function(tokens) {
+    token_counts <- tokens |>
+        count(token, name = "doc_count") # tokens has one row per tweet and token
+
+    return(list(tokens = token_counts, n_docs = n_distinct(tokens$id)))
 }
 
 #' Assign each token a weighting value per tweet
@@ -141,24 +146,32 @@ tokens_to_sparse_matrix <- function(values, ids, vocab) {
 add_columns <- function(x, extra) {
     extra_matrix <- tibble(id = rownames(x)) |>
         left_join(extra, by = "id") |>
-        mutate(across(-id, \(v) replace_na(v, 0))) |> # e.g. tweets without lexicon words
+        mutate(across(-id, \(v) replace_na(v, 0))) |>
         select(-id) |>
         as.matrix()
 
     return(cbind(x, Matrix::Matrix(extra_matrix, sparse = TRUE)))
 }
 
+#' Split tweets into words, one row per word
+tweet_words <- function(data) {
+    words <- data |>
+        select(id, tweet) |>
+        unnest_tokens(word, tweet)
+
+    return(words)
+}
+
 #' Compute features related to tweet length
-length_features <- function(data) {
-    lengths <- data |>
-        mutate(
-            n_words = str_count(tweet, "\\S+"),
-            n_letters = str_length(str_remove_all(tweet, "\\s"))
-        ) |>
-        transmute(
-            id,
-            log_n_words = log1p(n_words),
-            mean_word_length = n_letters / pmax(n_words, 1)
+#' @param long_word Minimum number of letters of a long word (default 7)
+length_features <- function(data, long_word = 7) {
+    lengths <- tweet_words(data) |>
+        group_by(id) |>
+        summarise(
+            log_n_words = log1p(n()),
+            mean_word_length = mean(nchar(word)),
+            long_word_share = mean(nchar(word) >= long_word),
+            unique_word_share = n_distinct(word) / n()
         )
 
     return(lengths)
@@ -166,15 +179,37 @@ length_features <- function(data) {
 
 #' Compute features from a sentiment lexicon
 lexicon_features <- function(data) {
-    sentiment_counts <- data |>
-        select(id, tweet) |>
-        unnest_tokens(word, tweet) |>
-        inner_join(get_sentiments("bing"), by = "word", relationship = "many-to-many") |>
+    bing <- get_sentiments("bing")
+    negative_words <- bing$word[bing$sentiment == "negative"]
+    positive_words <- bing$word[bing$sentiment == "positive"]
+
+    sentiment_counts <- tweet_words(data) |>
         group_by(id) |>
         summarise(
-            lex_negative = sum(sentiment == "negative"),
-            lex_positive = sum(sentiment == "positive")
+            lex_negative = sum(word %in% negative_words),
+            lex_positive = sum(word %in% positive_words),
+            lex_negative_share = lex_negative / n(),
+            lex_positive_share = lex_positive / n(),
+            lex_more_negative = as.numeric(lex_negative > lex_positive)
         )
 
     return(sentiment_counts)
+}
+
+#' Compute the share of question words
+question_features <- function(data) {
+    questions <- tweet_words(data) |>
+        group_by(id) |>
+        summarise(question_word_share = mean(word %in% question_words))
+
+    return(questions)
+}
+
+#' Compute the number of offensive words
+offensive_features <- function(data) {
+    offensive <- tweet_words(data) |>
+        group_by(id) |>
+        summarise(n_offensive_words = sum(word %in% offensive_words))
+
+    return(offensive)
 }

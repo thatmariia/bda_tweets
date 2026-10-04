@@ -15,7 +15,11 @@ source(here::here("R", "tokens.R"))
 source(here::here("R", "features.R"))
 ```
 
-## Potential features
+```{r, fold = "List of offensive words", code = readLines(here::here("R", "offensive_words.R"))}
+source(here::here("R", "offensive_words.R"))
+```
+
+## Features
 
 **Notation:**
 
@@ -45,12 +49,16 @@ source(here::here("R", "features.R"))
 | **Character n-grams** | Link word forms ("idiot", "idiots") and misspellings | [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013); [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062) |
 | **Surprise filter** | Drop tokens in fewer than `surprise_pct`% of tweets ($IDF_t \le -\log(\text{pct}/100)$) | Competition |
 
-**Extra columns** (`length`, `lexicon`):
+**Extra columns** (`extras`):
 
 | Feature | Motivation / intuition | Source |
 |---|---|---|
-| **Tweet length** | log number of words, mean word length; weak evidence, may reflect the source dataset | [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013) |
-| **Sentiment lexicon** | Number of negative / positive words (Bing lexicon); pools rare negative words | [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101) |
+| **Tweet length** | log number of words and mean word length; weak evidence, may reflect the source dataset | [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013) |
+| **Share of long words** | share of words with 7 or more letters; offensive tweets may use less complex words | |
+| **Share of unique words** | distinct words / all words; offensive tweets may use a less varied vocabulary | |
+| **Sentiment lexicon** | number and share of negative / positive words (Bing lexicon), and whether there are more negative than positive words; pools rare negative words | [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101) |
+| **Question words** | share of question words (who, what, where, ...) | |
+| **Offensive words** | number of words from a list of ~200 offensive words, generated with UvA AI Chat (`R/offensive_words.R`) | [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062) (counts of blacklist words) |
 
 ## Options for feature sets
 
@@ -66,25 +74,9 @@ source(here::here("R", "feature_selection.R"))
 ```{r}
 baseline_key <- "baseline_full_dtm_counts"
 baseline <- tribble(
-    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-    baseline_key, 1, 0, 0, "tf", 0, FALSE, FALSE
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+    baseline_key, 1, 0, 0, "tf", 0, FALSE
 )
-```
-
-### Study `weighting`
-
-```{r}
-weighting_options <- baseline |>
-    bind_rows(
-        tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-            "binary", 1, 0, 0, "binary", 0, FALSE, FALSE,
-            "count", 1, 0, 0, "count", 0, FALSE, FALSE,
-            "log_count", 1, 0, 0, "log_count", 0, FALSE, FALSE,
-            "tf", 1, 0, 0, "tf", 0, FALSE, FALSE,
-            "tf_idf", 1, 0, 0, "tf_idf", 0, FALSE, FALSE
-        )
-    )
 
 study_options <- function(options, title) {
     # display options, evaluate, show and plot result
@@ -95,6 +87,45 @@ study_options <- function(options, title) {
     print(feature_results |> select(key, n_features, val_auc, seconds))
     return(feature_results)
 }
+```
+
+### Study `extras`
+
+```{r}
+extras_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+            "baseline_with_extras", 1, 0, 0, "tf", 0, TRUE
+        )
+    )
+
+if (run_studies) {
+    study_extras_results <- study_options(extras_options, "extras")
+    plot_feature_results(study_extras_results, baseline = baseline_key)
+}
+```
+
+TODO: conclusion after running the study.
+
+```{r}
+chosen_extras <- TRUE
+```
+
+### Study `weighting`
+
+```{r}
+weighting_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+            "binary", 1, 0, 0, "binary", 0, chosen_extras,
+            "count", 1, 0, 0, "count", 0, chosen_extras,
+            "log_count", 1, 0, 0, "log_count", 0, chosen_extras,
+            "tf", 1, 0, 0, "tf", 0, chosen_extras,
+            "tf_idf", 1, 0, 0, "tf_idf", 0, chosen_extras
+        )
+    )
 
 if (run_studies) {
     study_weighting_results <- study_options(weighting_options, "weighting")
@@ -114,11 +145,11 @@ chosen_weighting <- "binary"
 ngram_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-            "ngrams_2", 2, 0, 0, chosen_weighting, 0, FALSE, FALSE,
-            "ngrams_3", 3, 0, 0, chosen_weighting, 0, FALSE, FALSE,
-            "ngrams_5", 5, 0, 0, chosen_weighting, 0, FALSE, FALSE,
-            "ngrams_10", 10, 0, 0, chosen_weighting, 0, FALSE, FALSE
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+            "ngrams_2", 2, 0, 0, chosen_weighting, 0, chosen_extras,
+            "ngrams_3", 3, 0, 0, chosen_weighting, 0, chosen_extras,
+            "ngrams_5", 5, 0, 0, chosen_weighting, 0, chosen_extras,
+            "ngrams_10", 10, 0, 0, chosen_weighting, 0, chosen_extras
         )
     )
 
@@ -142,12 +173,12 @@ chosen_ngram_max <- 2
 surprise_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, FALSE, FALSE,
-            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, FALSE, FALSE,
-            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, FALSE, FALSE,
-            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, FALSE, FALSE,
-            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, FALSE, FALSE
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_extras,
+            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, chosen_extras,
+            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, chosen_extras,
+            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, chosen_extras,
+            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, chosen_extras
         )
     )
 
@@ -170,17 +201,17 @@ chosen_surprise_pct <- 0.05
 shingle_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, FALSE, FALSE # nolint: line_length_linter.
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, chosen_extras # nolint: line_length_linter.
         )
     )
 
@@ -198,40 +229,14 @@ chosen_shingle_min <- 2
 chosen_shingle_max <- 5
 ```
 
-### Study `length` and `lexicon`
-
-```{r}
-length_lexicon_options <- baseline |>
-    bind_rows(
-        tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-            "neither", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, FALSE, FALSE, # nolint: line_length_linter.
-            "length", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, TRUE, FALSE, # nolint: line_length_linter.
-            "lexicon", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, FALSE, TRUE, # nolint: line_length_linter.
-            "length_lexicon", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, TRUE, TRUE # nolint: line_length_linter.
-        )
-    )
-
-if (run_studies) {
-    study_length_lexicon_results <- study_options(length_lexicon_options, "length and lexicon")
-    plot_feature_results(study_length_lexicon_results, baseline = baseline_key)
-}
-```
-
-Adding the length and/or lexicon columns does not improve the validation AUC,
-so we will not include them in the final feature set.
-
-```{r}
-chosen_length <- FALSE
-chosen_lexicon <- FALSE
-```
-
 ### Final set of features
+
+The extra columns are always included.
 
 ```{r}
 feature_options <- tribble(
-    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~length, ~lexicon, # nolint: line_length_linter.
-    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_length, chosen_lexicon, # nolint: line_length_linter.
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~extras, # nolint: line_length_linter.
+    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_extras, # nolint: line_length_linter.
 )
 feature_options
 ```
