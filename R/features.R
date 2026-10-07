@@ -80,6 +80,8 @@ prepare_features <- function(
             config = config,
             vocab = fit_vocabulary(token_counts, n_docs, config$surprise_pct)
         )
+        # in how many training tweets each word occurs, for the share of rare words
+        if (config$extras) recipe$word_counts <- count_words(data)
     }
 
     # weighted tokens -> sparse matrix per chunk (chunks in parallel)
@@ -91,7 +93,7 @@ prepare_features <- function(
     x <- do.call(rbind, unname(chunk_matrices))
 
     # extra features from raw tweets
-    if (config$extras) x <- x |> add_columns(extra_features(data))
+    if (config$extras) x <- x |> add_columns(extra_features(data, recipe$word_counts))
 
     return(list(x = x, y = y, recipe = recipe))
 }

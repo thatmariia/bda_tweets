@@ -15,9 +15,22 @@ add_columns <- function(x, extra) {
     return(cbind(x, Matrix::Matrix(extra_matrix, sparse = TRUE)))
 }
 
+#' Count in how many tweets each word occurs (learned on the training tweets)
+count_words <- function(data) {
+    word_counts <- data |>
+        select(id, tweet) |>
+        unnest_tokens(word, tweet) |>
+        distinct(id, word) |>
+        count(word, name = "word_count")
+
+    return(word_counts)
+}
+
 #' Compute the extra per-tweet features from the words of each tweet
+#' @param word_counts Output of count_words() on the training tweets
 #' @param long_word Minimum number of letters of a long word (default 7)
-extra_features <- function(data, long_word = 7) {
+#' @param rare_count A word is rare if it occurs in at most this many training tweets (default 5)
+extra_features <- function(data, word_counts, long_word = 7, rare_count = 5) {
     bing <- get_sentiments("bing")
     negative_words <- bing$word[bing$sentiment == "negative"]
     positive_words <- bing$word[bing$sentiment == "positive"]
@@ -26,6 +39,7 @@ extra_features <- function(data, long_word = 7) {
         select(id, tweet) |>
         unnest_tokens(word, tweet) |>
         left_join(afinn, by = "word") |>
+        left_join(word_counts, by = "word") |>
         group_by(id) |>
         summarise(
             # length
@@ -33,6 +47,7 @@ extra_features <- function(data, long_word = 7) {
             mean_word_length = mean(nchar(word)),
             long_word_share = mean(nchar(word) >= long_word),
             unique_word_share = n_distinct(word) / n(),
+            rare_word_share = mean(replace_na(word_count, 0) <= rare_count),
             # sentiment lexicon
             lex_negative = sum(word %in% negative_words),
             lex_positive = sum(word %in% positive_words),
