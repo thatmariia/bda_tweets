@@ -1,5 +1,5 @@
 # ==========================================================
-# == FUNCTIONS FOR DATA PREPROCESSING
+# == FUNCTIONS FOR TOKENS AND THE VOCABULARY
 # ==========================================================
 
 #' Tokenize tweets one way and count the tokens per tweet
@@ -60,4 +60,23 @@ stopword_list <- function(stopwords = c("none", "snowball", "smart")) {
         pull(word)
 
     return(words)
+}
+
+#' Get the vocabulary and IDF from the token counts of the training tweets
+fit_vocabulary <- function(token_counts, n_docs, surprise_pct = 0) {
+    kept_tokens <- token_counts |>
+        mutate(idf = log(n_docs / doc_count)) |>
+        filter(idf <= -log(surprise_pct / 100)) |>
+        select(token, idf)
+
+    return(kept_tokens)
+}
+
+#' Count the tweets that contain each token
+#' @return A list with `tokens` (one row per token) and `n_docs` (tweets with any token)
+count_tokens <- function(tokens) {
+    token_counts <- tokens |>
+        count(token, name = "doc_count") # tokens has one row per tweet and token
+
+    return(list(tokens = token_counts, n_docs = n_distinct(tokens$id)))
 }

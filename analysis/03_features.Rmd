@@ -7,16 +7,8 @@ test_data <- readRDS(here::here(output_dir, "test_data.rds"))
 
 # Features
 
-```{r, fold = "Relevant functions for tokenizing", code = readLines(here::here("R", "tokens.R"))}
-source(here::here("R", "tokens.R"))
-```
-
-```{r, fold = "Relevant functions for feature engineering", code = readLines(here::here("R", "features.R"))}
+```{r, fold = "Relevant functions for building feature matrices", code = readLines(here::here("R", "features.R"))}
 source(here::here("R", "features.R"))
-```
-
-```{r, fold = "Lists of special words", code = readLines(here::here("R", "special_words.R"))}
-source(here::here("R", "special_words.R"))
 ```
 
 ## Features
@@ -41,6 +33,10 @@ the tweets (variable with character elements) are split into tokens, and every t
 | `stopwords` | single words without the words of a stop word list: `"none"`, `"snowball"` (174 words) or `"smart"` (571 words) | | A common step in text analytics is to remove unimportant words (stopwords). This may have a positive or a negative effect on the prediction accuracy, therefore we try both. The lists also contain words like "not", "no" and "you", which may well be informative for offensive language. Only single words are removed; word n-grams such as "not good" keep them. Source: the `stop_words` lists of tidytext, [Silge & Robinson (2017)](https://www.tidytextmining.com/tidytext.html), ch. 1. |
 | `surprise_pct` | only the tokens occurring in at least `surprise_pct`% of the training tweets | | Rare tokens ($IDF_t > -\log(\text{surprise\_pct}/100)$, see below) are dropped. Learned on the training tweets only. |
 
+```{r, fold = "Relevant functions for tokens and the vocabulary", code = readLines(here::here("R", "tokens.R"))}
+source(here::here("R", "tokens.R"))
+```
+
 **Token values** (`weight_tokens()`; option `weighting`):
 the values in each token column are determined by the `weighting` option.
 
@@ -51,6 +47,10 @@ the values in each token column are determined by the `weighting` option.
 | `"log_count"` | log count $1+\log n_{d,t}$ | Repeats of a token add less than its first occurrence. Source: [Manning et al. (2008)](https://doi.org/10.1017/CBO9780511809071), §6.4.1. |
 | `"tf"` | term frequency $TF_{d,t}=\frac{n_{d,t}}{\sum_{t} n_{d,t}}$ | The relative frequency of a term within a document. |
 | `"tf_idf"` | $TFIDF_{d,t}=TF_{d,t}\,IDF_t$, with inverse document frequency $IDF_t=-\log\left(\frac{DF_t}{N}\right)$ | The product of TF and IDF. IDF is the inverse of the relative frequency with which a term occurs among the $N$ documents, expressed on a log scale (a measure of 'surprise'); it is learned on the training tweets only. Sources: competition; [Spärck Jones (1972)](https://doi.org/10.1108/eb026526). |
+
+```{r, fold = "Relevant functions for token values", code = readLines(here::here("R", "token_values.R"))}
+source(here::here("R", "token_values.R"))
+```
 
 **Extra columns** (option `extras`):
 `extra_features()` splits the tweets (variable with character elements) into words,
@@ -70,6 +70,14 @@ and adds one column per feature, with one value per tweet.
 | `afinn_mean`, `afinn_variance` | mean and variance of AFINN sentiment scores among matched words | Uses the AFINN lexicon to calculate each tweet’s average sentiment score and variation in matched-word scores. Lower mean scores indicate more negative sentiment, while higher variance indicates more mixed sentiment. Tweets without matched words receive 0; variance is also 0 for tweets with only one matched word. Sources: [Nielsen (2011)](https://github.com/fnielsen/afinn) |
 | `afinn_negative_mean` | mean AFINN score of negatively scored matched words only | Computes the average AFINN score restricted to words with a negative score (score < 0). Unlike afinn_mean, which is diluted by positive words, this isolates the intensity of negative sentiment. A tweet with both positive and negative words gets a more informative signal. Tweets with no negatively scored matched words receive 0. |
 | `negation_before_positive_share` | proportion of positive words (Bing list) immediately preceded by a negation word | Measures sentiment reversal by counting how often a positive word is directly preceded by a negation word (not, never, no, etc.), divided by total words. This captures constructions like "not good" or "never kind", which bag-of-words sentiment features treat as positive but carry negative or sarcastic meaning. |
+
+```{r, fold = "Relevant functions for extra features", code = readLines(here::here("R", "extra_features.R"))}
+source(here::here("R", "extra_features.R"))
+```
+
+```{r, fold = "Lists of special words", code = readLines(here::here("R", "special_words.R"))}
+source(here::here("R", "special_words.R"))
+```
 
 ## Options for feature sets
 
