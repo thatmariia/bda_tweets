@@ -99,6 +99,9 @@ cat("Refitting the best model on all labelled tweets (training + validation)...\
 best_fit <- refit_best(best_key, model_options, feature_sets, fitted_models$models)
 ```
 
+> *Note:* As the xgboost-model wasn't the best model, we don't have to exclude it manually in the following code
+> (because we are not allowed to submit this model, as discussed).
+
 ## Most important features
 
 We investigate which features influence the prediction of the best model towards most and least offensive.
