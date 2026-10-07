@@ -31,7 +31,8 @@ afinn <- read.delim(
   sep = "\t",
   col.names = c("word", "afinn_score"),
   stringsAsFactors = FALSE,
-  fileEncoding = "UTF-8"
+  fileEncoding = "UTF-8",
+  quote = ""
 )
 # ==> END LLM
 
