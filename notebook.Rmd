@@ -18,6 +18,8 @@ knitr::knit_hooks$set(fold = function(before, options) {
 })
 ```
 
+*(Group members: Mariia Steeghs-Turchina, Henning Lang)*
+
 # Detection of Offensive Tweets
 
 <!-- Team, goal of the competition -->
