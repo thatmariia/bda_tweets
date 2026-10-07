@@ -303,8 +303,6 @@ chosen_shingle_max <- 4
 
 ### Final set of features
 
-The extra columns are always included.
-
 ```{r}
 feature_options <- tribble(
     ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
