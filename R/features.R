@@ -183,6 +183,25 @@ extra_features <- function(data, long_word = 7) {
             lex_negative_share = lex_negative / n(),
             lex_positive_share = lex_positive / n(),
             lex_more_negative = as.numeric(lex_negative > lex_positive),
+            afinn_mean = if_else(
+                sum(!is.na(afinn_score)) > 0,
+                mean(afinn_score, na.rm = TRUE),
+                0
+            ),
+            afinn_variance = if_else(
+                sum(!is.na(afinn_score)) > 1,
+                var(afinn_score, na.rm = TRUE),
+                0
+            ),
+            afinn_negative_mean = if_else(
+                sum(!is.na(afinn_score) & afinn_score < 0) > 0,
+                mean(afinn_score[!is.na(afinn_score) & afinn_score < 0], na.rm = TRUE),
+                0
+            ),
+            negation_before_positive_share = {
+                prev_word <- lag(word, 1)
+                mean((word %in% positive_words) & (replace_na(prev_word, "") %in% negation_words))
+            },
             # question and offensive words
             question_word_share = mean(word %in% question_words),
             n_offensive_words = sum(word %in% offensive_words)
