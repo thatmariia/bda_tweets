@@ -170,6 +170,7 @@ extra_features <- function(data, long_word = 7) {
     extras <- data |>
         select(id, tweet) |>
         unnest_tokens(word, tweet) |>
+        left_join(afinn, by = "word") |> 
         group_by(id) |>
         summarise(
             # length
