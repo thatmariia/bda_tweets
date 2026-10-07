@@ -21,6 +21,8 @@ str(predictions)
 
 ## Writing submission file
 
+Finally, we write our predictions on the test data into a submission file.
+
 ```{r}
 submission <- tibble(id = test_data$id, prob = predictions) |>
     arrange(as.numeric(id))
