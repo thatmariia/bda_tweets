@@ -6,15 +6,21 @@ feature_sets <- readRDS(here::here(output_dir, "feature_sets.rds"))
 
 # Models
 
-The used models:
+The models are compared using held-out validation AUC. Within the training data,
+lambda for the glmnet models and the number of boosting rounds (nrounds) for xgboost
+are selected using three-fold cross-validation with AUC as the performance measure.
 
-| Method | Package | Tune | Notes |
+| Method | Model | Package | Tune | Notes |
 |---|---|---|---|
-| `lasso` | glmnet | `lambda` | `alpha = 1` |
-| `ridge` | glmnet | `lambda` | `alpha = 0` |
-| `elastic_net` | glmnet | `lambda` | `alpha = 0.5` |
+| `lasso` | Lasso logistic regression | glmnet | `lambda` | `alpha = 1` |
+| `ridge` | Ridge logistic regression | glmnet | `lambda` | `alpha = 0` |
+| `elastic_net` | Elastic net logistic regression | glmnet | `lambda` | `alpha = 0.5` |
+| `xgboost_tree` | Gradient-boosted decision-tree classifier | xgboost | `nrounds` | fixed tree settings (see xgboost_params) |
 
-TODO: other methods
+> *Note:* The xgboost-package is not compliant with the competition rules,
+> since it wasn't mentioned in the ISLR book nor in class (yet).
+> In consultation with Raoul we were allowed to use it in our code,
+> provided that we do not use the model as the best model for the leaderboard submission.
 
 ## Define options for training models
 
@@ -22,14 +28,15 @@ TODO: other methods
 |---|---|
 | `key` | Name of the model |
 | `feature_set` | Key of a feature set from the features notebook |
-| `method` | `lasso`, `ridge` or `elastic_net` |
+| `method` | `lasso`, `ridge`, `elastic_net`, or `xgboost_tree` |
 
 ```{r}
 model_options <- tribble(
     ~feature_set, ~method,
     "binary", "lasso",
     "binary", "ridge",
-    "binary", "elastic_net"
+    "binary", "elastic_net",
+    "binary", "xgboost_tree",
 ) |>
     mutate(key = paste(method, feature_set, sep = "_"))
 
