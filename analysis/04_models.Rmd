@@ -22,6 +22,10 @@ are selected using three-fold cross-validation with AUC as the performance measu
 > In consultation with Raoul we were allowed to use it in our code,
 > provided that we do not use the model as the best model for the leaderboard submission.
 
+```{r, fold = "Relevant functions for model methods: how each method is fitted, refitted and predicts", code = readLines(here::here("R", "model_methods.R"))}
+source(here::here("R", "model_methods.R"))
+```
+
 ## Define options for training models
 
 | Column | Meaning |
@@ -62,6 +66,10 @@ fitted_models$results
 
 ## Evaluation
 
+```{r, fold = "Relevant functions for plotting model results", code = readLines(here::here("R", "model_plots.R"))}
+source(here::here("R", "model_plots.R"))
+```
+
 The validation AUC of each model.
 
 ```{r}
@@ -90,17 +98,22 @@ plot_roc(fitted_models$models, feature_sets)
 Choose the best model based on the highest validation AUC and refit it on all labelled tweets (training + validation).
 
 ```{r}
+# only choose models that are allowed for submission (not xgboost)
+submittable <- names(model_methods)[map_lgl(model_methods, \(method) method$submittable)]
+
 best_key <- fitted_models$results |>
+    filter(method %in% submittable) |>
     slice_max(val_auc, n = 1, with_ties = FALSE) |>
     pull(key)
 cat("Best model:", best_key, "\n")
 
+```{r}
 cat("Refitting the best model on all labelled tweets (training + validation)...\n")
 best_fit <- refit_best(best_key, model_options, feature_sets, fitted_models$models)
 ```
 
-> *Note:* As the xgboost-model wasn't the best model, we don't have to exclude it manually in the following code
-> (because we are not allowed to submit this model, as discussed).
+> *Note:* Only methods marked as `submittable` in `model_methods` can be chosen here,
+> so the xgboost model is never used for the submission (as discussed).
 
 ## Most important features
 
