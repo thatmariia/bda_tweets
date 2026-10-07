@@ -107,7 +107,8 @@ best_fit <- refit_best(best_key, model_options, feature_sets, fitted_models$mode
 We investigate which features influence the prediction of the best model towards most and least offensive.
 The coefficients are standardized (multiplied by the standard deviation of their column) to compensate for the different scales of the features.
 
-```{r}
+```{r, fig.width = 9, fig.height = 11}
+options(repr.plot.width = 9, repr.plot.height = 11)
 plot_important_words(best_fit$model, feature_sets[[best_fit$model$feature_set]]$train$x, 30, 15)
 ```
 
