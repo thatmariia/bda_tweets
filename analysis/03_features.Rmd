@@ -94,6 +94,7 @@ source(here::here("R", "feature_selection.R"))
 
 The studies compare feature sets, which would be too expensive to run on all tweets.
 So we run them on a random sample of the training and validation tweets (12K and 3K).
+We have tested the same studies on a larger sample of 50K total, and the outcomes were the same.
 
 ```{r}
 study_split <- list(
