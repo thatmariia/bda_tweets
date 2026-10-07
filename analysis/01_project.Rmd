@@ -17,7 +17,7 @@ The dataset consists of tweets and comments from other social media platforms th
 Before use, the text was standardized through extensive preprocessing:
 hyperlinks, user mentions, and special characters were removed; contractions were expanded;
 emojis were converted to text; misspelled profanities were corrected; and all text was lowercased.
-Labels (1 == offensive; 2 == non-offensive) were assigned partly by human annotators and partly by predictive models.
+Labels (1 == offensive; 0 == non-offensive) were assigned partly by human annotators and partly by predictive models.
 
 Generalizability is limited in several ways. The dataset was class-balanced to a 1:1 ratio of offensive to non-offensive content,
 so predicted probabilities do not reflect real-world base rates.
