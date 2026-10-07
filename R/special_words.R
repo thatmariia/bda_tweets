@@ -20,3 +20,19 @@ offensive_words <- c(
     "psycho", "psychopath", "maniac", "lunatic", "nutcase", "sicko", "pervert", "degenerate", "deviant", "scoundrel", "villain", "thug", "brute", "bully", "tyrant", "bigmouth", "loudmouth", "crybaby"
 )
 # ==> END LLM
+
+# ==> START LLM src=https://aichat.uva.nl/share/97cKFYqfOX9nzVGnXn7KIvkSgsmwaLZgyenr
+afinn <- read.delim(
+  file = paste0(
+    "https://raw.githubusercontent.com/fnielsen/afinn/master/",
+    "afinn/data/AFINN-111.txt"
+  ),
+  header = FALSE,
+  sep = "\t",
+  col.names = c("word", "afinn_score"),
+  stringsAsFactors = FALSE,
+  fileEncoding = "UTF-8"
+)
+# ==> END LLM
+
+negation_words <- c("not", "never", "no", "neither", "nor", "hardly", "barely", "scarcely")
