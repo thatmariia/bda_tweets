@@ -144,7 +144,7 @@ replace_was_options <- baseline |>
 if (run_studies) study_replace_was_results <- study_options(replace_was_options, "replace_was")
 ```
 
-TODO: conclusion after running the study.
+The study shows that replacing "what a slut" with "was" improves the model's performance.
 
 ```{r}
 chosen_replace_was <- TRUE
@@ -188,7 +188,7 @@ weighting_options <- baseline |>
 if (run_studies) study_weighting_results <- study_options(weighting_options, "weighting")
 ```
 
-On the slice of training data, "binary" weighting is the best option, and it's also the simplest.
+On the slice of training data, "binary" weighting is the best option.
 
 ```{r}
 chosen_weighting <- "binary"
