@@ -31,3 +31,16 @@ source(here::here("setup.R"))
 ```{r notebooks, child = list.files(here::here("analysis"), full.names = TRUE)}
 ```
 
+# References
+
+Raoul, Karel Veldkamp, and Joost van Kordelaar.
+BDA 2026 Detection of Offensive Tweets.
+https://www.kaggle.com/competitions/bda-2026-detection-of-offensive-tweets, 2026.
+Kaggle.
+
+# Division of work
+
+| Member | Contribution |
+|---|---|
+| Henning Lang | Feature engineering (e.g. sentiment analysis-based features, offensive or question words), analysis of effect of stopwords exclusion, implementation of the tree-based-xgboost-model (xgboost_tree) , presentation (e.g. objectives of project, questions at the beginning) |
+| Mariia Steeghs-Turchina | Feature engineering (e.g. token level features and values, some of the extra features), study of features' effect on performance, implementation of the glmnet models (lasso, ridge, elastic_net), presentation (e.g. structure, data description, model comparison, submission) |
