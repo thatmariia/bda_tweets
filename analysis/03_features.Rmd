@@ -135,6 +135,7 @@ study_options <- function(options, title) {
 ### Study `replace_was`
 
 ```{r}
+cat("Studying replace_was option...\n")
 replace_was_options <- baseline |>
     bind_rows(
         tribble(
@@ -155,6 +156,7 @@ chosen_replace_was <- TRUE
 ### Study `extras`
 
 ```{r}
+cat("Studying extras option...\n")
 extras_options <- baseline |>
     bind_rows(
         tribble(
@@ -175,6 +177,7 @@ chosen_extras <- TRUE
 ### Study `weighting`
 
 ```{r}
+cat("Studying weighting option...\n")
 weighting_options <- baseline |>
     bind_rows(
         tribble(
@@ -199,6 +202,7 @@ chosen_weighting <- "binary"
 ### Study `ngram_max`
 
 ```{r}
+cat("Studying ngram_max option...\n")
 ngram_options <- baseline |>
     bind_rows(
         tribble(
@@ -225,6 +229,7 @@ chosen_ngram_max <- 2
 ### Study `stopwords`
 
 ```{r}
+cat("Studying stopwords option...\n")
 stopwords_options <- baseline |>
     bind_rows(
         tribble(
@@ -247,6 +252,7 @@ chosen_stopwords <- "none"
 ### Study `surprise_pct`
 
 ```{r}
+cat("Studying surprise_pct option...\n")
 surprise_options <- baseline |>
     bind_rows(
         tribble(
@@ -272,6 +278,7 @@ chosen_surprise_pct <- 0.05
 ### Study `shingle_min` and `shingle_max`
 
 ```{r}
+cat("Studying shingle_min and shingle_max options...\n")
 shingle_options <- baseline |>
     bind_rows(
         tribble(
@@ -320,11 +327,12 @@ The features are learned on the training tweets only and reused when the best mo
 is refitted on the training and validation tweets together.
 
 ```{r}
+cat("Building feature sets for training, validation, and test tweets...\n")
 feature_sets <- feature_options$key |>
     set_names() |>
     map(\(feature_key) {
         config <- config_from_options(feature_options, feature_key)
-        # chunks of tweets in parallel (see setup.R)
+        # chunks of tweets in parallel
         train <- prepare_features(
             data_split$train, config,
             chunk_size = chunk_size, n_cores = n_cores
