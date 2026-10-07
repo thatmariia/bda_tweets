@@ -80,3 +80,8 @@ count_tokens <- function(tokens) {
 
     return(list(tokens = token_counts, n_docs = n_distinct(tokens$id)))
 }
+
+#' Undo a preprocessing error of the source data: "was" turned into "what a slut"
+replace_what_a_slut <- function(text) {
+    return(str_replace_all(text, "\\bwhat a slut", "was"))
+}

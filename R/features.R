@@ -3,12 +3,14 @@
 # ==========================================================
 
 #' Settings for one feature set
+#' @param replace_was Replace "what a slut" by "was" in the tweets first (see replace_what_a_slut())
 #' @param extras Add the extra per-tweet columns (length, lexicon, question and offensive words)
 feature_config <- function(
     ngram_max = 1, shingle_min = 0, shingle_max = 0,
     weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
     surprise_pct = 0,
     stopwords = c("none", "snowball", "smart"),
+    replace_was = FALSE,
     extras = FALSE
 ) {
     config <- list(
@@ -18,6 +20,7 @@ feature_config <- function(
         weighting = match.arg(weighting),
         surprise_pct = surprise_pct,
         stopwords = match.arg(stopwords),
+        replace_was = replace_was,
         extras = extras
     )
 
@@ -48,6 +51,8 @@ prepare_features <- function(
     if (!fitting) config <- recipe$config
 
     y <- if ("label" %in% colnames(data)) data$label else NULL # test data doesn't have labels
+
+    if (config$replace_was) data <- data |> mutate(tweet = replace_what_a_slut(tweet))
 
     chunks <- split(data, ceiling(seq_len(nrow(data)) / chunk_size))
     tokenize <- \(chunk) {
