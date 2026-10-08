@@ -73,9 +73,11 @@ extra_features <- function(data, word_counts, long_word = 7, rare_count = 5) {
                 prev_word <- lag(word, 1)
                 mean((word %in% positive_words) & (replace_na(prev_word, "") %in% negation_words))
             },
-            # question and offensive words
+            # question, offensive, group and hateful words
             question_word_share = mean(word %in% question_words),
-            n_offensive_words = sum(word %in% offensive_words)
+            n_offensive_words = sum(word %in% offensive_words),
+            n_group_words = sum(word %in% group_words),
+            n_hateful_words = sum(word %in% hateful_words)
         )
 
     return(extras)
