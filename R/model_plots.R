@@ -74,8 +74,9 @@ glmnet_importance <- function(model, x) {
     return(importance)
 }
 
-#' Plot the features that influence the prediction towards offensive or not offensive
-plot_important_words <- function(model, x, most_n = 15, least_n = 15) {
+#' The features that influence the prediction most towards offensive and towards not offensive
+#' @param most_n,least_n Number of features towards offensive and towards not offensive
+important_words <- function(model, x, most_n = 15, least_n = 15) {
     importance <- glmnet_importance(model, x)
 
     top <- bind_rows(
@@ -86,8 +87,14 @@ plot_important_words <- function(model, x, most_n = 15, least_n = 15) {
         mutate(
             direction = if_else(standardized > 0, "towards offensive", "towards not offensive"),
             label = fct_reorder(column, standardized)
-        )
+        ) |>
+        arrange(desc(standardized))
 
+    return(top)
+}
+
+#' Plot the features that influence the prediction towards offensive or not offensive
+plot_important_words <- function(top) {
     plot <- ggplot(top, aes(x = standardized, y = label, fill = direction)) +
         geom_col() +
         geom_vline(xintercept = 0, colour = "grey") +
