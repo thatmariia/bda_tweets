@@ -5,26 +5,43 @@ for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
 
 # The project
 
+## What is the goal of the project?
+
+The goal of this project is to build a model that predicts how likely a tweet is to contain offensive, derogatory, or hateful language.
+We will train several machine-learning models, compare their performance using AUC,
+and use the best-performing model to create predictions for the competition test data.
+
 ## Where do the data come from? (To which population will results generalize?)
 
-The dataset consists of a large collection of tweets and comments posted on other platforms
-that may contain hurtful or otherwise derogatory messages.
+The dataset consists of tweets and comments from other social media platforms that may contain offensive or derogatory language.
+Before use, the text was standardized through extensive preprocessing:
+hyperlinks, user mentions, and special characters were removed; contractions were expanded;
+emojis were converted to text; misspelled profanities were corrected; and all text was lowercased.
+Labels (1 == offensive; 0 == non-offensive) were assigned partly by human annotators and partly by predictive models.
 
-The dataset was merged and standardized through a series of preprocessing steps applied to the raw text:
-
-1. Normalization: extra spaces, hyperlinks, user mentions, emojis/emoticons (converted to text), and newline characters were removed.
-2. Text expansion and correction: contractions were expanded (e.g., isn't → is not, lmao → laughing my ass off). Grammatical corrections were made by comparing candidate sentences using word mover’s distance, leveraging Google News Word2Vec embeddings (Word2Vec) and the open-source Gensim implementation (Gensim Word2Vec).
-3. Dates and times were removed.
-4. Accented characters and numbers (e.g., êá, 12) were removed.
-5. Remaining numeric values were converted to words.
-6. Ampersands at the beginning of words were removed.
-7. A predefined set of special characters (_"-;%()|+&=*%.,!?:#$@[]/) was stripped from the text.
-8. Misspelled profanities were corrected to their standard forms using a publicly available lexicon of English profanity.
-9. All lower case.
-
-Following these steps, the resulting dataset was class-balanced by downsampling the majority class to achieve an approximate 1:1 ratio between classes.
-Real content is less than 50% offensive (I hope), so accuracy and predicted probabilities won't translate to the real world.
+Generalizability is limited in several ways. The dataset was class-balanced to a 1:1 ratio of offensive to non-offensive content,
+so predicted probabilities do not reflect real-world base rates.
+The aggressive preprocessing means the model may perform worse on raw, unprocessed text.
+Finally, machine-generated labels introduce noise and may carry the biases of the model that produced them.
 
 ## What are candidate machine learning methods? (models? features?)
 
+Regularized logistic regression is a good starting point because it works well with large, sparse text-feature matrices.
+Candidate models include lasso, ridge, and elastic-net logistic regression,
+which regularize the many word n-gram, character-shingle, and extra tweet-level features.
+Tree-based methods are also of interest because they can capture nonlinear relationships and interactions.
+XGBoost gradient-boosted decision trees are therefore a promising additional candidate.
+Methods such as Naïve Bayes, PLS, PCA, and standard random forests are less suitable because the feature matrix is
+extremely high-dimensional and sparse.
+Other techniques that we didn't study in the course so far, but some approaches that would be interesting in principle
+are support vector machines or the integration of Transformer models.
+
 ## What is the Bayes' error bound?
+
+The Bayes error rate cannot be identified from this dataset alone.
+Both human annotators and predictive models made labelling errors: humans disagree on borderline cases,
+miss sarcasm, or misjudge context-dependent insults,
+while machine-generated labels inherit the biases and errors of the model that produced them.
+This irreducible label noise implies a Bayes error above zero.
+In terms of AUC, the theoretical ceiling is 1.0, but given labelling noise the practical ceiling is likely lower.
+A realistic upper bound on achievable AUC might lie somewhere between 0.95 and 0.98, with the remainder being irreducible noise.

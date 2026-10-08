@@ -7,16 +7,8 @@ test_data <- readRDS(here::here(output_dir, "test_data.rds"))
 
 # Features
 
-```{r, fold = "Relevant functions for tokenizing", code = readLines(here::here("R", "tokens.R"))}
-source(here::here("R", "tokens.R"))
-```
-
-```{r, fold = "Relevant functions for feature engineering", code = readLines(here::here("R", "features.R"))}
+```{r, fold = "Relevant functions for building feature matrices", code = readLines(here::here("R", "features.R"))}
 source(here::here("R", "features.R"))
-```
-
-```{r, fold = "Lists of special words", code = readLines(here::here("R", "special_words.R"))}
-source(here::here("R", "special_words.R"))
 ```
 
 ## Features
@@ -36,12 +28,17 @@ the tweets (variable with character elements) are split into tokens, and every t
 
 | option | tokens | example columns | description and justification |
 |---|---|---|---|
+| `replace_was` | all tokens, after replacing "what a slut" by "was" in the tweets | `was` instead of `what`, `a`, `slut` | The preprocessing of the source data read "was" as the acronym "WAS" and turned it into "what a slut". Sources: Raoul told us. |
 | `ngram_max` | word n-grams of 1 to `ngram_max` words | `idiot`, `2gram_not good` | Single words, pairs of words (bigrams), etc. Word n-grams keep phrases together (negations, expanded contractions, emoji descriptions). Sources: [Silge & Robinson (2017)](https://www.tidytextmining.com/ngrams.html), ch. 4; [Davidson et al. (2017)](https://doi.org/10.1609/icwsm.v11i1.14955). |
 | `shingle_min`, `shingle_max` | character n-grams of `shingle_min` to `shingle_max` letters (none if `shingle_max = 0`) | `4shingle_idio` | Character n-grams link related word forms ("idiot", "idiots") and misspellings. Sources: [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013); [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
 | `stopwords` | single words without the words of a stop word list: `"none"`, `"snowball"` (174 words) or `"smart"` (571 words) | | A common step in text analytics is to remove unimportant words (stopwords). This may have a positive or a negative effect on the prediction accuracy, therefore we try both. The lists also contain words like "not", "no" and "you", which may well be informative for offensive language. Only single words are removed; word n-grams such as "not good" keep them. Source: the `stop_words` lists of tidytext, [Silge & Robinson (2017)](https://www.tidytextmining.com/tidytext.html), ch. 1. |
 | `surprise_pct` | only the tokens occurring in at least `surprise_pct`% of the training tweets | | Rare tokens ($IDF_t > -\log(\text{surprise\_pct}/100)$, see below) are dropped. Learned on the training tweets only. |
 
-**Token values** (`weight_tokens()` in `R/features.R`; option `weighting`):
+```{r, fold = "Relevant functions for tokens and the vocabulary", code = readLines(here::here("R", "tokens.R"))}
+source(here::here("R", "tokens.R"))
+```
+
+**Token values** (`weight_tokens()`; option `weighting`):
 the values in each token column are determined by the `weighting` option.
 
 | `weighting` | value in each token column | description and justification |
@@ -52,7 +49,11 @@ the values in each token column are determined by the `weighting` option.
 | `"tf"` | term frequency $TF_{d,t}=\frac{n_{d,t}}{\sum_{t} n_{d,t}}$ | The relative frequency of a term within a document. |
 | `"tf_idf"` | $TFIDF_{d,t}=TF_{d,t}\,IDF_t$, with inverse document frequency $IDF_t=-\log\left(\frac{DF_t}{N}\right)$ | The product of TF and IDF. IDF is the inverse of the relative frequency with which a term occurs among the $N$ documents, expressed on a log scale (a measure of 'surprise'); it is learned on the training tweets only. Sources: competition; [Spärck Jones (1972)](https://doi.org/10.1108/eb026526). |
 
-**Extra columns** (`R/features.R`; option `extras`):
+```{r, fold = "Relevant functions for token values", code = readLines(here::here("R", "token_values.R"))}
+source(here::here("R", "token_values.R"))
+```
+
+**Extra columns** (option `extras`):
 `extra_features()` splits the tweets (variable with character elements) into words,
 and adds one column per feature, with one value per tweet.
 
@@ -62,11 +63,25 @@ and adds one column per feature, with one value per tweet.
 | `mean_word_length` | mean length of words | Calculates the mean length of words per tweet. It may be that offensive tweets use, for example, shorter words. Sources: [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062); [Waseem & Hovy (2016)](https://doi.org/10.18653/v1/N16-2013). |
 | `long_word_share` | proportion of long words (7 or more letters) in a tweet | Measures the proportion of long words (many characters) in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less complex words. |
 | `unique_word_share` | proportion of unique words to all words | Measures the proportion of unique words to all words in a tweet to express some kind of complex language of the tweet. The idea is that offensive tweets use rather less unique words. |
+| `rare_word_share` | proportion of rare words (occurring in at most 5 training tweets) | Measures how much of a tweet consists of unusual vocabulary. Rare words are dropped from the token columns by the surprise filter, so this column keeps a summary of them. Their occurrence is counted on the training tweets only, so words never seen in training count as rare. |
 | `lex_negative`, `lex_positive` | sum of negative words and sum of positive words (Bing list) | Uses the Bing list from the tidytext package as reference to calculate per tweet how many positive or negative words have been used. It is plausible that offensive tweets use more negative words and fewer positive words. Counting all negative words together also pools rare negative words, which have too few examples to get a reliable coefficient of their own. Sources: [Hu & Liu (2004)](https://doi.org/10.1145/1014052.1014073); [Schmidt & Wiegand (2017)](https://doi.org/10.18653/v1/W17-1101). |
 | `lex_negative_share`, `lex_positive_share` | proportion of negative words and proportion of positive words | The same sums relative to the length of the tweet, so a long tweet with a few negative words differs from a short tweet that is mostly negative words. |
 | `lex_more_negative` | either 0 ("positive") or 1 ("negative") | Measures if the tweet is rather positive or negative given the sums of positive and negative words. |
 | `question_word_share` | proportion of question words (who, what, where, when, why, how, which, whose, whom) | Calculates the proportion of used question words in a tweet given a benchmark list with question words. It could be that there is a relation between used question words and offensive language. |
-| `n_offensive_words` | sum of offensive benchmark words | Uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
+| `n_offensive_words` | sum of offensive benchmark words | uses the AI generated list of 200 offensive words as benchmark to calculate how many of these words were used in the tweet. Probably, offensive tweets use some of these words rather than non-offensive tweets. Counting words from a list of offensive words is also done by [Nobata et al. (2016)](https://doi.org/10.1145/2872427.2883062). |
+| `n_group_words` | sum of words naming a social group | counts neutral words that name social groups often targeted by hate speech (religion, migration status, etc.), generated with UvA AI Chat. |
+| `n_hateful_words` | sum of hateful benchmark words | counts slurs and hateful terms aimed at the social groups, generated with UvA AI Chat. |
+| `afinn_mean`, `afinn_variance` | mean and variance of AFINN sentiment scores among matched words | Uses the AFINN lexicon to calculate each tweet’s average sentiment score and variation in matched-word scores. Lower mean scores indicate more negative sentiment, while higher variance indicates more mixed sentiment. Tweets without matched words receive 0; variance is also 0 for tweets with only one matched word. Sources: [Nielsen (2011)](https://github.com/fnielsen/afinn) |
+| `afinn_negative_mean` | mean AFINN score of negatively scored matched words only | Computes the average AFINN score restricted to words with a negative score (score < 0). Unlike afinn_mean, which is diluted by positive words, this isolates the intensity of negative sentiment. A tweet with both positive and negative words gets a more informative signal. Tweets with no negatively scored matched words receive 0. |
+| `negation_before_positive_share` | proportion of positive words (Bing list) immediately preceded by a negation word | Measures sentiment reversal by counting how often a positive word is directly preceded by a negation word (not, never, no, etc.), divided by total words. This captures constructions like "not good" or "never kind", which bag-of-words sentiment features treat as positive but carry negative or sarcastic meaning. |
+
+```{r, fold = "Relevant functions for extra features", code = readLines(here::here("R", "extra_features.R"))}
+source(here::here("R", "extra_features.R"))
+```
+
+```{r, fold = "Lists of special words", code = readLines(here::here("R", "special_words.R"))}
+source(here::here("R", "special_words.R"))
+```
 
 ## Options for feature sets
 
@@ -81,6 +96,7 @@ source(here::here("R", "feature_selection.R"))
 
 The studies compare feature sets, which would be too expensive to run on all tweets.
 So we run them on a random sample of the training and validation tweets (12K and 3K).
+We have tested the same studies on a larger sample of 50K total, and the outcomes were the same.
 
 ```{r}
 study_split <- list(
@@ -98,8 +114,8 @@ cat(
 ```{r}
 baseline_key <- "baseline_full_dtm_counts"
 baseline <- tribble(
-    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-    baseline_key, 1, 0, 0, "tf", 0, "none", FALSE
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+    baseline_key, 1, 0, 0, "tf", 0, FALSE, "none", FALSE
 )
 
 study_options <- function(options, title) {
@@ -118,14 +134,36 @@ study_options <- function(options, title) {
 }
 ```
 
+### Study `replace_was`
+
+```{r}
+cat("Studying replace_was option...\n")
+replace_was_options <- baseline |>
+    bind_rows(
+        tribble(
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "baseline_replace_was", 1, 0, 0, "tf", 0, TRUE, "none", FALSE
+        )
+    )
+
+if (run_studies) study_replace_was_results <- study_options(replace_was_options, "replace_was")
+```
+
+The study shows that replacing "what a slut" with "was" improves the model's performance.
+
+```{r}
+chosen_replace_was <- TRUE
+```
+
 ### Study `extras`
 
 ```{r}
+cat("Studying extras option...\n")
 extras_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-            "baseline_with_extras", 1, 0, 0, "tf", 0, "none", TRUE
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "baseline_with_extras", 1, 0, 0, "tf", 0, chosen_replace_was, "none", TRUE
         )
     )
 
@@ -141,22 +179,23 @@ chosen_extras <- TRUE
 ### Study `weighting`
 
 ```{r}
+cat("Studying weighting option...\n")
 weighting_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-            "binary", 1, 0, 0, "binary", 0, "none", chosen_extras,
-            "count", 1, 0, 0, "count", 0, "none", chosen_extras,
-            "log_count", 1, 0, 0, "log_count", 0, "none", chosen_extras,
-            "tf", 1, 0, 0, "tf", 0, "none", chosen_extras,
-            "tf_idf", 1, 0, 0, "tf_idf", 0, "none", chosen_extras
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "binary", 1, 0, 0, "binary", 0, chosen_replace_was, "none", chosen_extras,
+            "count", 1, 0, 0, "count", 0, chosen_replace_was, "none", chosen_extras,
+            "log_count", 1, 0, 0, "log_count", 0, chosen_replace_was, "none", chosen_extras,
+            "tf", 1, 0, 0, "tf", 0, chosen_replace_was, "none", chosen_extras,
+            "tf_idf", 1, 0, 0, "tf_idf", 0, chosen_replace_was, "none", chosen_extras
         )
     )
 
 if (run_studies) study_weighting_results <- study_options(weighting_options, "weighting")
 ```
 
-On the slice of training data, "binary" weighting is the best option, and it's also the simplest.
+On the slice of training data, "binary" weighting is the best option.
 
 ```{r}
 chosen_weighting <- "binary"
@@ -165,15 +204,16 @@ chosen_weighting <- "binary"
 ### Study `ngram_max`
 
 ```{r}
+cat("Studying ngram_max option...\n")
 ngram_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-            "ngrams_1", 1, 0, 0, chosen_weighting, 0, "none", chosen_extras,
-            "ngrams_2", 2, 0, 0, chosen_weighting, 0, "none", chosen_extras,
-            "ngrams_3", 3, 0, 0, chosen_weighting, 0, "none", chosen_extras,
-            "ngrams_5", 5, 0, 0, chosen_weighting, 0, "none", chosen_extras,
-            "ngrams_10", 10, 0, 0, chosen_weighting, 0, "none", chosen_extras
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "ngrams_1", 1, 0, 0, chosen_weighting, 0, chosen_replace_was, "none", chosen_extras,
+            "ngrams_2", 2, 0, 0, chosen_weighting, 0, chosen_replace_was, "none", chosen_extras,
+            "ngrams_3", 3, 0, 0, chosen_weighting, 0, chosen_replace_was, "none", chosen_extras,
+            "ngrams_5", 5, 0, 0, chosen_weighting, 0, chosen_replace_was, "none", chosen_extras,
+            "ngrams_10", 10, 0, 0, chosen_weighting, 0, chosen_replace_was, "none", chosen_extras
         )
     )
 
@@ -191,13 +231,14 @@ chosen_ngram_max <- 2
 ### Study `stopwords`
 
 ```{r}
+cat("Studying stopwords option...\n")
 stopwords_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-            "stopwords_none", chosen_ngram_max, 0, 0, chosen_weighting, 0, "none", chosen_extras, # nolint: line_length_linter.
-            "stopwords_snowball", chosen_ngram_max, 0, 0, chosen_weighting, 0, "snowball", chosen_extras, # nolint: line_length_linter.
-            "stopwords_smart", chosen_ngram_max, 0, 0, chosen_weighting, 0, "smart", chosen_extras # nolint: line_length_linter.
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "stopwords_none", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_replace_was, "none", chosen_extras, # nolint: line_length_linter.
+            "stopwords_snowball", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_replace_was, "snowball", chosen_extras, # nolint: line_length_linter.
+            "stopwords_smart", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_replace_was, "smart", chosen_extras # nolint: line_length_linter.
         )
     )
 
@@ -213,15 +254,16 @@ chosen_stopwords <- "none"
 ### Study `surprise_pct`
 
 ```{r}
+cat("Studying surprise_pct option...\n")
 surprise_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, chosen_stopwords, chosen_extras # nolint: line_length_linter.
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "surprise_0", chosen_ngram_max, 0, 0, chosen_weighting, 0, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_001", chosen_ngram_max, 0, 0, chosen_weighting, 0.01, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_005", chosen_ngram_max, 0, 0, chosen_weighting, 0.05, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_01", chosen_ngram_max, 0, 0, chosen_weighting, 0.1, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "surprise_05", chosen_ngram_max, 0, 0, chosen_weighting, 0.5, chosen_replace_was, chosen_stopwords, chosen_extras # nolint: line_length_linter.
         )
     )
 
@@ -238,21 +280,22 @@ chosen_surprise_pct <- 0.05
 ### Study `shingle_min` and `shingle_max`
 
 ```{r}
+cat("Studying shingle_min and shingle_max options...\n")
 shingle_options <- baseline |>
     bind_rows(
         tribble(
-            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-            "shingles_0", chosen_ngram_max, 0, 0, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
-            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras # nolint: line_length_linter.
+            ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+            "shingles_0", chosen_ngram_max, 0, 0, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2", chosen_ngram_max, 2, 2, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_3", chosen_ngram_max, 3, 3, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_4", chosen_ngram_max, 4, 4, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_5", chosen_ngram_max, 5, 5, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_5", chosen_ngram_max, 2, 5, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_3_5", chosen_ngram_max, 3, 5, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_4_5", chosen_ngram_max, 4, 5, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_4", chosen_ngram_max, 2, 4, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_3_4", chosen_ngram_max, 3, 4, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+            "shingles_2_3", chosen_ngram_max, 2, 3, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras # nolint: line_length_linter.
         )
     )
 
@@ -269,12 +312,10 @@ chosen_shingle_max <- 4
 
 ### Final set of features
 
-The extra columns are always included.
-
 ```{r}
 feature_options <- tribble(
-    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~stopwords, ~extras, # nolint: line_length_linter.
-    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
+    ~key, ~ngram_max, ~shingle_min, ~shingle_max, ~weighting, ~surprise_pct, ~replace_was, ~stopwords, ~extras, # nolint: line_length_linter.
+    "binary", chosen_ngram_max, chosen_shingle_min, chosen_shingle_max, chosen_weighting, chosen_surprise_pct, chosen_replace_was, chosen_stopwords, chosen_extras, # nolint: line_length_linter.
 )
 cat("Chosen feature set:\n")
 feature_options
@@ -288,11 +329,12 @@ The features are learned on the training tweets only and reused when the best mo
 is refitted on the training and validation tweets together.
 
 ```{r}
+cat("Building feature sets for training, validation, and test tweets...\n")
 feature_sets <- feature_options$key |>
     set_names() |>
     map(\(feature_key) {
         config <- config_from_options(feature_options, feature_key)
-        # chunks of tweets in parallel (see setup.R)
+        # chunks of tweets in parallel
         train <- prepare_features(
             data_split$train, config,
             chunk_size = chunk_size, n_cores = n_cores

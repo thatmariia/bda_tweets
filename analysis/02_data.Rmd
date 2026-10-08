@@ -7,6 +7,15 @@ for (file in list.files(here::here("R"), full.names = TRUE)) source(file)
 
 ## Load raw test and training data
 
+Some observations about the datasets:
+
+- The training dataset consists of 400,000 tweets and contains the response variable label, while the test dataset consists of 50,001 tweets and doesn't contain the response variable.
+- The training data contains 3 columns: id, tweet, and label. The test data contains 2 columns: id and tweet.
+- Each tweet (character variable) has a unique ID (saved in the variable id).
+- The outcome label contains two levels: 1 = offensive language and 0 = no offensive language.
+- In the training data approximately half of the tweets contains offensive language.
+- Both test and training data contain no missing values.
+
 ```{r}
 # Find the right file paths
 train_filepath <- dir(data_dir, pattern = "train.csv", recursive = TRUE, full.names = TRUE)

@@ -8,7 +8,7 @@ options(repr.matrix.max.rows = 8)
 set.seed(2025)
 
 on_kaggle <- dir.exists("/kaggle/input")
-final_submission <- FALSE
+final_submission <- TRUE
 run_studies <- TRUE
 
 n_cores <- if (.Platform$OS.type == "windows") {
