@@ -6,12 +6,12 @@
 #' @param replace_was Replace "what a slut" by "was" in the tweets first (see replace_what_a_slut())
 #' @param extras Add the extra per-tweet columns (length, lexicon, question and offensive words)
 feature_config <- function(
-    ngram_max = 1, shingle_min = 0, shingle_max = 0,
-    weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
-    surprise_pct = 0,
-    stopwords = c("none", "snowball", "smart"),
-    replace_was = FALSE,
-    extras = FALSE
+  ngram_max = 1, shingle_min = 0, shingle_max = 0,
+  weighting = c("count", "binary", "log_count", "tf", "tf_idf"),
+  surprise_pct = 0,
+  stopwords = c("none", "snowball", "smart"),
+  replace_was = FALSE,
+  extras = FALSE
 ) {
     config <- list(
         ngram_max = ngram_max,
@@ -42,7 +42,7 @@ feature_config <- function(
 #'      (keep 1 when prepare_features() itself already runs in parallel, as in the studies)
 #' @return A list with `x` (sparse matrix), `y` (labels or NULL), and `recipe`
 prepare_features <- function(
-    data, config = NULL, recipe = NULL, chunk_size = 20000, n_cores = 1
+  data, config = NULL, recipe = NULL, chunk_size = 20000, n_cores = 1
 ) {
     stopifnot(all(c("id", "tweet") %in% colnames(data)))
     stopifnot(xor(is.null(config), is.null(recipe))) # either config or recipe must be provided

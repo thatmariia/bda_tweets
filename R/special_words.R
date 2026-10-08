@@ -23,87 +23,87 @@ offensive_words <- c(
 
 # ==> START LLM src=https://aichat.uva.nl/share/9RNQRZ8vpqo6baoCYFmohOHAnh9QHKtaEiaT
 group_words <- c(
-  # religion
-  "muslim", "muslims", "moslem", "moslems", "islam", "islamic", "islamist", "islamists",
-  "jew", "jews", "jewish", "judaism",
-  "evangelical", "evangelicals", "mormon", "mormons",
-  "hindu", "hindus", "hinduism", "buddhist", "buddhists", "buddhism",
-  "sikh", "sikhs", "sikhism", "jain", "jains",
-  # migration status
-  "immigrant", "immigrants", "immigration",
-  "migrant", "migrants", "migration", "refugee", "refugees", "asylum",
-  "foreigner", "foreigners", "undocumented", "stateless",
-  # orientation, gender identity and gender
-  "gay", "gays", "lesbian", "lesbians", "homo", "bi",
-  "lgbt", "lgbtq", "lgbtqia", "queer", "queers",
-  "trans",
-  "woman", "women",
-  # disability
-  "disabled",
-  "deaf",
-  "autistic", "autism",
-  "bipolar", "impaired"
+    # religion
+    "muslim", "muslims", "moslem", "moslems", "islam", "islamic", "islamist", "islamists",
+    "jew", "jews", "jewish", "judaism",
+    "evangelical", "evangelicals", "mormon", "mormons",
+    "hindu", "hindus", "hinduism", "buddhist", "buddhists", "buddhism",
+    "sikh", "sikhs", "sikhism", "jain", "jains",
+    # migration status
+    "immigrant", "immigrants", "immigration",
+    "migrant", "migrants", "migration", "refugee", "refugees", "asylum",
+    "foreigner", "foreigners", "undocumented", "stateless",
+    # orientation, gender identity and gender
+    "gay", "gays", "lesbian", "lesbians", "homo", "bi",
+    "lgbt", "lgbtq", "lgbtqia", "queer", "queers",
+    "trans",
+    "woman", "women",
+    # disability
+    "disabled",
+    "deaf",
+    "autistic", "autism",
+    "bipolar", "impaired"
 )
 
 hateful_words <- c(
-  # religion
-  "kike", "kikes", "kyke", "kykes", "yid", "yids", "heeb", "heebs", "hebe", "hebes",
-  "jewboy", "jewboys", "zio", "zios",
-  "muzzie", "muzzies", "muzzy", "mudslime", "mudslimes", "mudslim", "mudslims",
-  "raghead", "ragheads", "towelhead", "towelheads", "cameljockey", "cameljockeys",
-  "dothead", "dotheads", "islamofascist", "islamofascists", "kafir", "kafirs",
-  # ethnicity and nationality
-  "nigger", "niggers", "niggar", "niggars", "nigra", "nigras", "niglet", "niglets",
-  "jigaboo", "jigaboos", "jiggaboo", "jiggaboos", "spearchucker", "spearchuckers",
-  "tarbaby", "sambo", "sambos", "darkie", "darkies", "darky", "coon", "coons",
-  "junglebunny", "junglebunnies", "porchmonkey", "porchmonkeys",
-  "sandnigger", "sandniggers", "sandmonkey", "sandmonkeys", "dunecoon", "dunecoons",
-  "shitskin", "shitskins", "kaffir", "kaffirs",
-  "spic", "spics", "spick", "spicks", "wetback", "wetbacks", "beaner", "beaners",
-  "chink", "chinks", "chinky", "gook", "gooks", "slanteye", "slanteyes",
-  "zipperhead", "zipperheads", "chingchong", "chingchongs", "coolie", "coolies",
-  "jap", "japs", "paki", "pakis", "oriental", "orientals",
-  "wop", "wops", "dago", "dagos", "kraut", "krauts", "polack", "polacks",
-  "limey", "limeys", "gypsy", "gypsies", "gyppo", "gyppos", "gypo", "gypos",
-  "pikey", "pikeys", "injun", "injuns", "redskin", "redskins", "squaw", "squaws",
-  "honky", "honkey", "honkies", "honkeys", "whitey", "whiteys", "whities", "cracker", "crackers",
-  "negro", "negros", "negroes", "mulatto", "mulattos", "gringo", "gringos",
-  # migration status
-  "rapefugee", "rapefugees", "illegals", "anchorbaby", "anchorbabies",
-  "invader", "invaders", "thirdworlder", "thirdworlders",
-  # sexual orientation
-  "fag", "fags", "faggot", "faggots", "faggy", "faggit", "faggits", "fagget", "fagots",
-  "dyke", "dykes", "homo", "homos", "lesbo", "lesbos", "lezzie", "lezzies", "lez", "lezbo", "lezbos",
-  "sodomite", "sodomites", "poof", "poofs", "poofter", "poofters",
-  "fudgepacker", "fudgepackers", "carpetmuncher", "carpetmunchers",
-  "battyboy", "battyboys", "buttpirate", "buttpirates",
-  # gender identity
-  "tranny", "trannies", "trannie", "trannys", "troon", "troons",
-  "shemale", "shemales", "heshe", "heshes", "ladyboy", "ladyboys",
-  # gender
-  "femoid", "femoids", "foid", "foids", "feminazi", "feminazis",
-  "roastie", "roasties", "mangina", "manginas",
-  # disability
-  "retard", "retards", "retarded", "tard", "tards", "tardo", "tardos",
-  "spastic", "spastics", "spaz", "spazz", "spazzes", "spazzy",
-  "cripple", "cripples", "crippled", "gimp", "gimps",
-  "mong", "mongs", "mongoloid", "mongoloids", "windowlicker", "windowlickers",
-  "autist", "autists", "sperg", "spergs", "sperglord", "sperglords"
+    # religion
+    "kike", "kikes", "kyke", "kykes", "yid", "yids", "heeb", "heebs", "hebe", "hebes",
+    "jewboy", "jewboys", "zio", "zios",
+    "muzzie", "muzzies", "muzzy", "mudslime", "mudslimes", "mudslim", "mudslims",
+    "raghead", "ragheads", "towelhead", "towelheads", "cameljockey", "cameljockeys",
+    "dothead", "dotheads", "islamofascist", "islamofascists", "kafir", "kafirs",
+    # ethnicity and nationality
+    "nigger", "niggers", "niggar", "niggars", "nigra", "nigras", "niglet", "niglets",
+    "jigaboo", "jigaboos", "jiggaboo", "jiggaboos", "spearchucker", "spearchuckers",
+    "tarbaby", "sambo", "sambos", "darkie", "darkies", "darky", "coon", "coons",
+    "junglebunny", "junglebunnies", "porchmonkey", "porchmonkeys",
+    "sandnigger", "sandniggers", "sandmonkey", "sandmonkeys", "dunecoon", "dunecoons",
+    "shitskin", "shitskins", "kaffir", "kaffirs",
+    "spic", "spics", "spick", "spicks", "wetback", "wetbacks", "beaner", "beaners",
+    "chink", "chinks", "chinky", "gook", "gooks", "slanteye", "slanteyes",
+    "zipperhead", "zipperheads", "chingchong", "chingchongs", "coolie", "coolies",
+    "jap", "japs", "paki", "pakis", "oriental", "orientals",
+    "wop", "wops", "dago", "dagos", "kraut", "krauts", "polack", "polacks",
+    "limey", "limeys", "gypsy", "gypsies", "gyppo", "gyppos", "gypo", "gypos",
+    "pikey", "pikeys", "injun", "injuns", "redskin", "redskins", "squaw", "squaws",
+    "honky", "honkey", "honkies", "honkeys", "whitey", "whiteys", "whities", "cracker", "crackers",
+    "negro", "negros", "negroes", "mulatto", "mulattos", "gringo", "gringos",
+    # migration status
+    "rapefugee", "rapefugees", "illegals", "anchorbaby", "anchorbabies",
+    "invader", "invaders", "thirdworlder", "thirdworlders",
+    # sexual orientation
+    "fag", "fags", "faggot", "faggots", "faggy", "faggit", "faggits", "fagget", "fagots",
+    "dyke", "dykes", "homo", "homos", "lesbo", "lesbos", "lezzie", "lezzies", "lez", "lezbo", "lezbos",
+    "sodomite", "sodomites", "poof", "poofs", "poofter", "poofters",
+    "fudgepacker", "fudgepackers", "carpetmuncher", "carpetmunchers",
+    "battyboy", "battyboys", "buttpirate", "buttpirates",
+    # gender identity
+    "tranny", "trannies", "trannie", "trannys", "troon", "troons",
+    "shemale", "shemales", "heshe", "heshes", "ladyboy", "ladyboys",
+    # gender
+    "femoid", "femoids", "foid", "foids", "feminazi", "feminazis",
+    "roastie", "roasties", "mangina", "manginas",
+    # disability
+    "retard", "retards", "retarded", "tard", "tards", "tardo", "tardos",
+    "spastic", "spastics", "spaz", "spazz", "spazzes", "spazzy",
+    "cripple", "cripples", "crippled", "gimp", "gimps",
+    "mong", "mongs", "mongoloid", "mongoloids", "windowlicker", "windowlickers",
+    "autist", "autists", "sperg", "spergs", "sperglord", "sperglords"
 )
 # ==> END LLM
 
 # ==> START LLM src=https://aichat.uva.nl/share/97cKFYqfOX9nzVGnXn7KIvkSgsmwaLZgyenr
 afinn <- read.delim(
-  file = paste0(
-    "https://raw.githubusercontent.com/fnielsen/afinn/master/",
-    "afinn/data/AFINN-111.txt"
-  ),
-  header = FALSE,
-  sep = "\t",
-  col.names = c("word", "afinn_score"),
-  stringsAsFactors = FALSE,
-  encoding = "UTF-8",
-  quote = ""
+    file = paste0(
+        "https://raw.githubusercontent.com/fnielsen/afinn/master/",
+        "afinn/data/AFINN-111.txt"
+    ),
+    header = FALSE,
+    sep = "\t",
+    col.names = c("word", "afinn_score"),
+    stringsAsFactors = FALSE,
+    encoding = "UTF-8",
+    quote = ""
 )
 # ==> END LLM
 
